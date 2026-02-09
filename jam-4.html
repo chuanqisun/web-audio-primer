@@ -490,14 +490,12 @@
         const el = e.target.closest(".key");
         if (el) { e.preventDefault(); noteOn(el.dataset.note); }
       });
-      kbEl.addEventListener("mouseup", (e) => {
-        const el = e.target.closest(".key");
-        if (el) { e.preventDefault(); noteOff(el.dataset.note); }
-      });
-      kbEl.addEventListener("mouseleave", (e) => {
-        if (e.buttons > 0) {
-          const el = e.target.closest(".key");
-          if (el) noteOff(el.dataset.note);
+      document.addEventListener("mouseup", () => {
+        // Release all mouse-held notes when mouse is released anywhere
+        for (const note of [...heldNotes]) {
+          if (!pcKeysDown.has(Object.entries(KEY_MAP).find(([k, v]) => v === note)?.[0])) {
+            noteOff(note);
+          }
         }
       });
       kbEl.addEventListener("mouseover", (e) => {
@@ -757,7 +755,7 @@
         seqCurrentStep = -1;
         seqPrevNotes = new Set();
         const bpm = gv("in-seq-bpm");
-        const intervalMs = 60000 / bpm / 2; // 8th notes
+        const intervalMs = 60000 / bpm / 4; // 16th notes
         seqTick();
         seqTimerId = setInterval(seqTick, intervalMs);
       }
