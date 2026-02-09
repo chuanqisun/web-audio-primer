@@ -795,7 +795,8 @@
 
           // --- Waveform ---
           analyser.getByteTimeDomainData(timeBuf);
-          const ww = waveCanvas.width, wh = waveCanvas.height;
+          const ww = waveCanvas.width,
+            wh = waveCanvas.height;
           wc.fillStyle = "#fff";
           wc.fillRect(0, 0, ww, wh);
           // center line
@@ -819,7 +820,8 @@
 
           // --- Frequency ---
           analyser.getByteFrequencyData(freqBuf);
-          const fw = freqCanvas.width, fh = freqCanvas.height;
+          const fw = freqCanvas.width,
+            fh = freqCanvas.height;
           fc.fillStyle = "#fff";
           fc.fillRect(0, 0, fw, fh);
           const barCount = Math.min(bufLen, fw);
