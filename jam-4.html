@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phase 4 Jam: The Polyphonic Performance Rack</title>
+    <link rel="stylesheet" href="shared/elements.css" />
+    <link rel="stylesheet" href="shared/synth-ui.css" />
+    <style>
+      body { max-width: 960px; margin: 0 auto; padding: 10px; padding-bottom: 40px; }
+      .top-bar { position: sticky; top: 0; background: #f5f5f5; border: 1px solid #ccc; padding: 10px; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .keyboard { display: flex; position: relative; height: 120px; margin-top: 10px; user-select: none; }
+      .key { flex: 1; border: 1px solid #333; background: #fff; cursor: pointer; position: relative; z-index: 1; }
+      .key.black { background: #333; color: #fff; width: 60%; margin: 0 -3%; height: 65%; z-index: 2; flex: 0 0 auto; }
+      .key.active { background: #07a; }
+      .key.black.active { background: #059; }
+      .key-label { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; pointer-events: none; }
+    </style>
+  </head>
+  <body>
+    <div class="init-bar">
+      <strong>🎹 Polyphonic Performance Rack</strong>
+      <span>
+        <button id="init-audio">Start Audio</button>
+        <span id="audio-status" style="color: red; font-size: 12px">Stopped</span>
+      </span>
+    </div>
+
+    <!-- ON-SCREEN KEYBOARD -->
+    <div class="keyboard" id="keyboard">
+      <div class="key" data-note="C3"><span class="key-label">C3</span></div>
+      <div class="key black" data-note="C#3"><span class="key-label">C#</span></div>
+      <div class="key" data-note="D3"><span class="key-label">D3</span></div>
+      <div class="key black" data-note="D#3"><span class="key-label">D#</span></div>
+      <div class="key" data-note="E3"><span class="key-label">E3</span></div>
+      <div class="key" data-note="F3"><span class="key-label">F3</span></div>
+      <div class="key black" data-note="F#3"><span class="key-label">F#</span></div>
+      <div class="key" data-note="G3"><span class="key-label">G3</span></div>
+      <div class="key black" data-note="G#3"><span class="key-label">G#</span></div>
+      <div class="key" data-note="A3"><span class="key-label">A3</span></div>
+      <div class="key black" data-note="A#3"><span class="key-label">A#</span></div>
+      <div class="key" data-note="B3"><span class="key-label">B3</span></div>
+      <div class="key" data-note="C4"><span class="key-label">C4</span></div>
+    </div>
+
+    <!-- STICKY ARPEGGIATOR BAR -->
+    <div class="top-bar">
+      <div class="transport">
+        <button id="btn-arp-toggle">Arp: OFF</button>
+        <label title="Arpeggiator rate in Hz.">Rate
+          <input type="range" id="in-arp-rate" min="1" max="20" step="0.5" value="6" />
+          <span class="val" id="val-arp-rate">6</span>
+        </label>
+        <label title="Arpeggiator pattern.">Pattern
+          <select id="sel-arp-pattern" style="font-size: 12px; padding: 2px;">
+            <option value="up">Up</option>
+            <option value="down">Down</option>
+            <option value="updown">Up-Down</option>
+            <option value="random">Random</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <!-- SCOPES -->
+    <div class="scope-row">
+      <div class="scope-wrap">
+        <span class="scope-label">WAVEFORM</span>
+        <canvas id="scope-wave"></canvas>
+      </div>
+      <div class="scope-wrap">
+        <span class="scope-label">FREQUENCY</span>
+        <canvas id="scope-freq"></canvas>
+      </div>
+    </div>
+
+    <!-- PANELS -->
+    <div class="panels">
+      <!-- OSCILLATOR -->
+      <div class="panel" id="panel-osc">
+        <h3>Oscillator</h3>
+        <div class="knob">
+          <label title="Oscillator waveform shape.">Waveform <span class="val" id="val-osc-wave">sawtooth</span></label>
+          <select id="in-osc-wave" style="width:100%; font-size:11px;">
+            <option value="sawtooth">Sawtooth</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="sine">Sine</option>
+          </select>
+        </div>
+        <div class="knob">
+          <label title="Detune amount in cents. Adds thickness by detuning oscillators slightly.">Detune <span class="val" id="val-osc-detune">0</span></label>
+          <input type="range" id="in-osc-detune" min="-50" max="50" step="1" value="0" />
+        </div>
+      </div>
+
+      <!-- FILTER -->
+      <div class="panel" id="panel-flt">
+        <h3>Filter</h3>
+        <div class="knob">
+          <label title="Lowpass filter cutoff frequency.">Cutoff <span class="val" id="val-flt-cut">2000</span></label>
+          <input type="range" id="in-flt-cut" min="50" max="8000" value="2000" />
+        </div>
+        <div class="knob">
+          <label title="Filter resonance. Boosts frequencies at the cutoff point.">Resonance <span class="val" id="val-flt-res">1</span></label>
+          <input type="range" id="in-flt-res" min="0" max="25" step="0.5" value="1" />
+        </div>
+      </div>
+
+      <!-- ENVELOPE -->
+      <div class="panel" id="panel-env">
+        <h3>Envelope</h3>
+        <div class="knob">
+          <label title="Attack time. How fast the sound fades in.">Attack <span class="val" id="val-env-atk">0.01</span></label>
+          <input type="range" id="in-env-atk" min="0.005" max="2.0" step="0.005" value="0.01" />
+        </div>
+        <div class="knob">
+          <label title="Decay time. Fade from peak to sustain level.">Decay <span class="val" id="val-env-dec">0.20</span></label>
+          <input type="range" id="in-env-dec" min="0.01" max="2.0" step="0.01" value="0.20" />
+        </div>
+        <div class="knob">
+          <label title="Sustain level while key is held. 0 = pluck. 1 = organ.">Sustain <span class="val" id="val-env-sus">0.60</span></label>
+          <input type="range" id="in-env-sus" min="0" max="1" step="0.01" value="0.60" />
+        </div>
+        <div class="knob">
+          <label title="Release time. Fade-out after key is released.">Release <span class="val" id="val-env-rel">0.30</span></label>
+          <input type="range" id="in-env-rel" min="0.01" max="3.0" step="0.01" value="0.30" />
+        </div>
+      </div>
+
+      <!-- MOD / FX -->
+      <div class="panel" id="panel-modfx">
+        <h3>Mod / FX</h3>
+        <div class="knob">
+          <label title="Mod 1 LFO rate (Hz). Modulates filter cutoff.">Mod1 Rate <span class="val" id="val-mod1-rate">0</span></label>
+          <input type="range" id="in-mod1-rate" min="0" max="15" step="0.1" value="0" />
+        </div>
+        <div class="knob">
+          <label title="Mod 1 depth. How much the LFO sweeps the filter cutoff.">Mod1 Depth <span class="val" id="val-mod1-depth">0</span></label>
+          <input type="range" id="in-mod1-depth" min="0" max="4000" step="10" value="0" />
+        </div>
+        <div class="knob">
+          <label title="Mod 2 LFO rate (Hz). Modulates wavefolder amount.">Mod2 Rate <span class="val" id="val-mod2-rate">0</span></label>
+          <input type="range" id="in-mod2-rate" min="0" max="15" step="0.1" value="0" />
+        </div>
+        <div class="knob">
+          <label title="Mod 2 depth. How much the LFO affects the wavefolder intensity.">Mod2 Depth <span class="val" id="val-mod2-depth">0</span></label>
+          <input type="range" id="in-mod2-depth" min="0" max="1" step="0.01" value="0" />
+        </div>
+        <div class="knob">
+          <label title="Delay time in seconds.">Delay Time <span class="val" id="val-dly-time">0.30</span></label>
+          <input type="range" id="in-dly-time" min="0.05" max="1.0" step="0.01" value="0.30" />
+        </div>
+        <div class="knob">
+          <label title="Delay feedback. Higher = longer echoes.">Delay FB <span class="val" id="val-dly-fb">0.30</span></label>
+          <input type="range" id="in-dly-fb" min="0" max="0.85" step="0.01" value="0.30" />
+        </div>
+        <div class="knob">
+          <label title="Delay dry/wet mix. 0 = no delay. 1 = delay only.">Delay Mix <span class="val" id="val-dly-mix">0.20</span></label>
+          <input type="range" id="in-dly-mix" min="0" max="1" step="0.01" value="0.20" />
+        </div>
+      </div>
+
+      <!-- MASTER -->
+      <div class="panel" id="panel-master">
+        <h3>Master</h3>
+        <div class="knob">
+          <label title="Master output volume.">Volume <span class="val" id="val-master">0.50</span></label>
+          <input type="range" id="in-master" min="0" max="1" step="0.01" value="0.50" />
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ========== AUDIO ENGINE ==========
+      let ctx;
+      let isReady = false;
+
+      document.getElementById("init-audio").addEventListener("click", async () => {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") await ctx.resume();
+        isReady = true;
+        document.getElementById("audio-status").innerText = "Running";
+        document.getElementById("audio-status").style.color = "green";
+        document.getElementById("init-audio").disabled = true;
+        buildEngine();
+      });
+
+      // ========== HELPERS ==========
+      function gv(id) { return parseFloat(document.getElementById(id).value); }
+
+      function bind(sId, dId, cb) {
+        const s = document.getElementById(sId);
+        const d = document.getElementById(dId);
+        s.addEventListener("input", () => {
+          d.innerText = s.value;
+          if (cb) cb(parseFloat(s.value));
+        });
+      }
+
+      // ========== NOTE FREQUENCIES ==========
+      const NOTE_FREQS = {
+        "C3": 130.81, "C#3": 138.59, "D3": 146.83, "D#3": 155.56,
+        "E3": 164.81, "F3": 174.61, "F#3": 185.00, "G3": 196.00,
+        "G#3": 207.65, "A3": 220.00, "A#3": 233.08, "B3": 246.94,
+        "C4": 261.63
+      };
+
+      // ========== POLYPHONIC VOICE POOL ==========
+      const NUM_VOICES = 4;
+      let voices = [];
+      let voiceIndex = 0;
+      let masterGain, analyser;
+      let delayNode, delayFb, dryGain, wetGain;
+      let lfo1, lfo1Gain, lfo2, lfo2Gain;
+      let wavefolder;
+      let foldBaseGain;
+
+      function makeWavefoldCurve(amount) {
+        const n = 8192, curve = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          const x = (i * 2) / n - 1;
+          curve[i] = Math.sin(x * Math.PI * amount);
+        }
+        return curve;
+      }
+
+      function buildEngine() {
+        // Master chain
+        masterGain = ctx.createGain();
+        masterGain.gain.value = gv("in-master");
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+
+        // Delay effect
+        delayNode = ctx.createDelay(2);
+        delayNode.delayTime.value = gv("in-dly-time");
+        delayFb = ctx.createGain();
+        delayFb.gain.value = gv("in-dly-fb");
+        dryGain = ctx.createGain();
+        dryGain.gain.value = 1 - gv("in-dly-mix");
+        wetGain = ctx.createGain();
+        wetGain.gain.value = gv("in-dly-mix");
+
+        // Delay routing
+        const delayBus = ctx.createGain();
+        delayBus.gain.value = 1;
+        delayBus.connect(dryGain).connect(masterGain);
+        delayBus.connect(delayNode);
+        delayNode.connect(delayFb).connect(delayNode);
+        delayNode.connect(wetGain).connect(masterGain);
+        masterGain.connect(analyser).connect(ctx.destination);
+
+        // Wavefolder (shared)
+        wavefolder = ctx.createWaveShaper();
+        wavefolder.curve = makeWavefoldCurve(2);
+        wavefolder.oversample = "4x";
+
+        // Fold amount gain (pre-waveshaper drive)
+        foldBaseGain = ctx.createGain();
+        foldBaseGain.gain.value = 1;
+        foldBaseGain.connect(wavefolder);
+        wavefolder.connect(delayBus);
+
+        // LFO 1 → Filter cutoff (applied per-voice filter)
+        lfo1 = ctx.createOscillator();
+        lfo1.type = "sine";
+        lfo1.frequency.value = gv("in-mod1-rate");
+        lfo1Gain = ctx.createGain();
+        lfo1Gain.gain.value = gv("in-mod1-depth");
+        lfo1.connect(lfo1Gain);
+        lfo1.start();
+
+        // LFO 2 → Fold amount (modulates foldBaseGain)
+        lfo2 = ctx.createOscillator();
+        lfo2.type = "sine";
+        lfo2.frequency.value = gv("in-mod2-rate");
+        lfo2Gain = ctx.createGain();
+        lfo2Gain.gain.value = gv("in-mod2-depth");
+        lfo2.connect(lfo2Gain);
+        lfo2Gain.connect(foldBaseGain.gain);
+        lfo2.start();
+
+        // Build 4 polyphonic voices
+        const waveform = document.getElementById("in-osc-wave").value;
+        const detune = gv("in-osc-detune");
+        const cutoff = gv("in-flt-cut");
+        const reso = gv("in-flt-res");
+
+        for (let i = 0; i < NUM_VOICES; i++) {
+          const osc = ctx.createOscillator();
+          osc.type = waveform;
+          osc.frequency.value = 130.81;
+          osc.detune.value = detune;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.value = cutoff;
+          filter.Q.value = reso;
+
+          // Connect LFO1 to each voice's filter
+          lfo1Gain.connect(filter.frequency);
+
+          const vca = ctx.createGain();
+          vca.gain.value = 0;
+
+          osc.connect(filter);
+          filter.connect(vca);
+          vca.connect(foldBaseGain);
+
+          osc.start();
+
+          voices.push({
+            osc: osc,
+            filter: filter,
+            vca: vca,
+            note: null,
+            active: false
+          });
+        }
+
+        drawScope();
+      }
+
+      // ========== NOTE TRIGGER / RELEASE ==========
+      function triggerVoice(note) {
+        if (!isReady || voices.length === 0) return;
+        const freq = NOTE_FREQS[note];
+        if (!freq) return;
+
+        // Check if this note is already playing on a voice
+        for (let i = 0; i < NUM_VOICES; i++) {
+          if (voices[i].note === note && voices[i].active) return;
+        }
+
+        // Round-robin allocation
+        const v = voices[voiceIndex % NUM_VOICES];
+        voiceIndex++;
+
+        const now = ctx.currentTime;
+        const atk = gv("in-env-atk");
+        const dec = gv("in-env-dec");
+        const sus = gv("in-env-sus");
+
+        v.osc.frequency.setValueAtTime(freq, now);
+        v.osc.type = document.getElementById("in-osc-wave").value;
+        v.osc.detune.setValueAtTime(gv("in-osc-detune"), now);
+
+        v.filter.frequency.setValueAtTime(gv("in-flt-cut"), now);
+        v.filter.Q.value = gv("in-flt-res");
+
+        // ADSR: Attack → Decay → Sustain
+        v.vca.gain.cancelScheduledValues(now);
+        v.vca.gain.setValueAtTime(0, now);
+        v.vca.gain.linearRampToValueAtTime(1.0, now + atk);
+        v.vca.gain.linearRampToValueAtTime(Math.max(0.001, sus), now + atk + dec);
+
+        v.note = note;
+        v.active = true;
+      }
+
+      function releaseVoice(note) {
+        if (!isReady || voices.length === 0) return;
+        const now = ctx.currentTime;
+        const rel = gv("in-env-rel");
+
+        for (let i = 0; i < NUM_VOICES; i++) {
+          if (voices[i].note === note && voices[i].active) {
+            voices[i].vca.gain.cancelScheduledValues(now);
+            voices[i].vca.gain.setValueAtTime(voices[i].vca.gain.value, now);
+            voices[i].vca.gain.linearRampToValueAtTime(0, now + rel);
+            voices[i].active = false;
+            voices[i].note = null;
+          }
+        }
+      }
+
+      // ========== KEYBOARD INTERACTION ==========
+      const heldNotes = new Set();
+      const keyElements = document.querySelectorAll(".key");
+
+      function noteOn(note) {
+        if (heldNotes.has(note)) return;
+        heldNotes.add(note);
+        triggerVoice(note);
+        updateKeyHighlights();
+        if (arpEnabled && !arpTimerId) startArp();
+      }
+
+      function noteOff(note) {
+        if (!heldNotes.has(note)) return;
+        heldNotes.delete(note);
+        if (!arpEnabled) {
+          releaseVoice(note);
+        }
+        updateKeyHighlights();
+        if (arpEnabled && heldNotes.size === 0) stopArp();
+      }
+
+      function updateKeyHighlights() {
+        keyElements.forEach(el => {
+          const n = el.dataset.note;
+          if (heldNotes.has(n)) el.classList.add("active");
+          else el.classList.remove("active");
+        });
+      }
+
+      // Mouse events
+      keyElements.forEach(el => {
+        el.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          noteOn(el.dataset.note);
+        });
+        el.addEventListener("mouseup", (e) => {
+          e.preventDefault();
+          noteOff(el.dataset.note);
+        });
+        el.addEventListener("mouseleave", (e) => {
+          if (e.buttons > 0) noteOff(el.dataset.note);
+        });
+        el.addEventListener("mouseenter", (e) => {
+          if (e.buttons > 0) noteOn(el.dataset.note);
+        });
+      });
+
+      // Touch events
+      document.getElementById("keyboard").addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const el = document.elementFromPoint(t.clientX, t.clientY);
+          if (el && el.dataset.note) noteOn(el.dataset.note);
+        }
+      }, { passive: false });
+
+      document.getElementById("keyboard").addEventListener("touchend", (e) => {
+        e.preventDefault();
+        for (const t of e.changedTouches) {
+          const el = document.elementFromPoint(t.clientX, t.clientY);
+          if (el && el.dataset.note) noteOff(el.dataset.note);
+        }
+      }, { passive: false });
+
+      // ========== ARPEGGIATOR ==========
+      let arpEnabled = false;
+      let arpTimerId = null;
+      let arpDirection = 1; // 1=up, -1=down (for up-down mode)
+      let arpIndex = 0;
+
+      document.getElementById("btn-arp-toggle").addEventListener("click", () => {
+        arpEnabled = !arpEnabled;
+        document.getElementById("btn-arp-toggle").textContent = arpEnabled ? "Arp: ON" : "Arp: OFF";
+        if (arpEnabled && heldNotes.size > 0) {
+          startArp();
+        } else {
+          stopArp();
+        }
+      });
+
+      function getSortedHeldNotes() {
+        const noteOrder = Object.keys(NOTE_FREQS);
+        return [...heldNotes].sort((a, b) => noteOrder.indexOf(a) - noteOrder.indexOf(b));
+      }
+
+      function arpTick() {
+        const sorted = getSortedHeldNotes();
+        if (sorted.length === 0) { stopArp(); return; }
+
+        const pattern = document.getElementById("sel-arp-pattern").value;
+        let note;
+
+        if (pattern === "random") {
+          note = sorted[Math.floor(Math.random() * sorted.length)];
+        } else if (pattern === "up") {
+          arpIndex = arpIndex % sorted.length;
+          note = sorted[arpIndex];
+          arpIndex++;
+        } else if (pattern === "down") {
+          arpIndex = arpIndex % sorted.length;
+          note = sorted[sorted.length - 1 - arpIndex];
+          arpIndex++;
+        } else if (pattern === "updown") {
+          if (sorted.length === 1) {
+            note = sorted[0];
+          } else {
+            if (arpIndex >= sorted.length) {
+              arpDirection = -1;
+              arpIndex = sorted.length - 2;
+            }
+            if (arpIndex < 0) {
+              arpDirection = 1;
+              arpIndex = 1;
+            }
+            arpIndex = Math.max(0, Math.min(sorted.length - 1, arpIndex));
+            note = sorted[arpIndex];
+            arpIndex += arpDirection;
+          }
+        }
+
+        // Release all voices then trigger the arp note
+        for (let i = 0; i < NUM_VOICES; i++) {
+          if (voices[i].active) {
+            const now = ctx.currentTime;
+            voices[i].vca.gain.cancelScheduledValues(now);
+            voices[i].vca.gain.setValueAtTime(voices[i].vca.gain.value, now);
+            voices[i].vca.gain.linearRampToValueAtTime(0, now + 0.01);
+            voices[i].active = false;
+            voices[i].note = null;
+          }
+        }
+
+        if (note) {
+          // Directly trigger without the heldNotes check
+          const freq = NOTE_FREQS[note];
+          if (freq && voices.length > 0) {
+            const v = voices[voiceIndex % NUM_VOICES];
+            voiceIndex++;
+            const now = ctx.currentTime;
+            const atk = gv("in-env-atk");
+            const dec = gv("in-env-dec");
+            const sus = gv("in-env-sus");
+
+            v.osc.frequency.setValueAtTime(freq, now);
+            v.osc.type = document.getElementById("in-osc-wave").value;
+            v.osc.detune.setValueAtTime(gv("in-osc-detune"), now);
+            v.filter.frequency.setValueAtTime(gv("in-flt-cut"), now);
+            v.filter.Q.value = gv("in-flt-res");
+
+            v.vca.gain.cancelScheduledValues(now);
+            v.vca.gain.setValueAtTime(0, now);
+            v.vca.gain.linearRampToValueAtTime(1.0, now + atk);
+            v.vca.gain.linearRampToValueAtTime(Math.max(0.001, sus), now + atk + dec);
+
+            v.note = note;
+            v.active = true;
+          }
+        }
+      }
+
+      function startArp() {
+        stopArp();
+        arpIndex = 0;
+        arpDirection = 1;
+        const rate = gv("in-arp-rate");
+        const intervalMs = 1000 / rate;
+        arpTick();
+        arpTimerId = setInterval(arpTick, intervalMs);
+      }
+
+      function stopArp() {
+        if (arpTimerId) {
+          clearInterval(arpTimerId);
+          arpTimerId = null;
+        }
+        // Release all voices
+        if (voices.length > 0) {
+          const now = ctx ? ctx.currentTime : 0;
+          for (let i = 0; i < NUM_VOICES; i++) {
+            if (voices[i].active) {
+              voices[i].vca.gain.cancelScheduledValues(now);
+              voices[i].vca.gain.setValueAtTime(voices[i].vca.gain.value, now);
+              voices[i].vca.gain.linearRampToValueAtTime(0, now + 0.05);
+              voices[i].active = false;
+              voices[i].note = null;
+            }
+          }
+        }
+      }
+
+      function resyncArp() {
+        if (!arpEnabled || !arpTimerId) return;
+        startArp();
+      }
+
+      // ========== SCOPE ==========
+      function syncCanvasSize(canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.round(rect.width * dpr);
+        const h = Math.round(rect.height * dpr);
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+      }
+
+      function drawScope() {
+        if (!analyser) return;
+        const waveCanvas = document.getElementById("scope-wave");
+        const freqCanvas = document.getElementById("scope-freq");
+        const wc = waveCanvas.getContext("2d");
+        const fc = freqCanvas.getContext("2d");
+        const bufLen = analyser.frequencyBinCount;
+        const timeBuf = new Uint8Array(bufLen);
+        const freqBuf = new Uint8Array(bufLen);
+
+        function render() {
+          requestAnimationFrame(render);
+          syncCanvasSize(waveCanvas);
+          syncCanvasSize(freqCanvas);
+
+          analyser.getByteTimeDomainData(timeBuf);
+          const ww = waveCanvas.width, wh = waveCanvas.height;
+          wc.fillStyle = "#fff";
+          wc.fillRect(0, 0, ww, wh);
+          wc.strokeStyle = "#ddd";
+          wc.lineWidth = 1;
+          wc.beginPath();
+          wc.moveTo(0, wh / 2);
+          wc.lineTo(ww, wh / 2);
+          wc.stroke();
+          wc.lineWidth = 1.5;
+          wc.strokeStyle = "#07a";
+          wc.beginPath();
+          const sliceW = ww / bufLen;
+          for (let i = 0; i < bufLen; i++) {
+            const y = (timeBuf[i] / 255) * wh;
+            if (i === 0) wc.moveTo(0, y);
+            else wc.lineTo(i * sliceW, y);
+          }
+          wc.stroke();
+
+          analyser.getByteFrequencyData(freqBuf);
+          const fw = freqCanvas.width, fh = freqCanvas.height;
+          fc.fillStyle = "#fff";
+          fc.fillRect(0, 0, fw, fh);
+          const barCount = Math.min(bufLen, fw);
+          const barW = fw / barCount;
+          for (let i = 0; i < barCount; i++) {
+            const v = freqBuf[i] / 255;
+            const barH = v * fh;
+            fc.fillStyle = `hsl(${200 - v * 160}, 70%, ${50 - v * 20}%)`;
+            fc.fillRect(i * barW, fh - barH, Math.max(barW - 0.5, 1), barH);
+          }
+        }
+        render();
+      }
+
+      // ========== KNOB BINDINGS ==========
+      // Oscillator
+      document.getElementById("in-osc-wave").addEventListener("input", (e) => {
+        document.getElementById("val-osc-wave").innerText = e.target.value;
+        voices.forEach(v => { v.osc.type = e.target.value; });
+      });
+      bind("in-osc-detune", "val-osc-detune", (v) => {
+        voices.forEach(voice => { voice.osc.detune.value = v; });
+      });
+
+      // Filter
+      bind("in-flt-cut", "val-flt-cut", (v) => {
+        voices.forEach(voice => { voice.filter.frequency.value = v; });
+      });
+      bind("in-flt-res", "val-flt-res", (v) => {
+        voices.forEach(voice => { voice.filter.Q.value = v; });
+      });
+
+      // Envelope (read at trigger time, no live binding needed)
+      bind("in-env-atk", "val-env-atk");
+      bind("in-env-dec", "val-env-dec");
+      bind("in-env-sus", "val-env-sus");
+      bind("in-env-rel", "val-env-rel");
+
+      // Mod 1 (LFO → Filter)
+      bind("in-mod1-rate", "val-mod1-rate", (v) => {
+        if (lfo1) lfo1.frequency.value = v;
+      });
+      bind("in-mod1-depth", "val-mod1-depth", (v) => {
+        if (lfo1Gain) lfo1Gain.gain.value = v;
+      });
+
+      // Mod 2 (LFO → Fold)
+      bind("in-mod2-rate", "val-mod2-rate", (v) => {
+        if (lfo2) lfo2.frequency.value = v;
+      });
+      bind("in-mod2-depth", "val-mod2-depth", (v) => {
+        if (lfo2Gain) lfo2Gain.gain.value = v;
+      });
+
+      // Delay
+      bind("in-dly-time", "val-dly-time", (v) => {
+        if (delayNode) delayNode.delayTime.value = v;
+      });
+      bind("in-dly-fb", "val-dly-fb", (v) => {
+        if (delayFb) delayFb.gain.value = v;
+      });
+      bind("in-dly-mix", "val-dly-mix", (v) => {
+        if (dryGain) dryGain.gain.value = 1 - v;
+        if (wetGain) wetGain.gain.value = v;
+      });
+
+      // Master
+      bind("in-master", "val-master", (v) => {
+        if (masterGain) masterGain.gain.value = v;
+      });
+
+      // Arp rate
+      bind("in-arp-rate", "val-arp-rate", () => { resyncArp(); });
+    </script>
+  </body>
+</html>
