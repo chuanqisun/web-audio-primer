@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modular Synthesis: Phase 3</title>
+    <link rel="stylesheet" href="shared/elements.css" />
+    <link rel="stylesheet" href="shared/synth-ui.css" />
+    <link rel="stylesheet" href="shared/tutorial.css" />
+  </head>
+  <body>
+    <h1>Web Audio Modular: Phase 3</h1>
+    <p>
+      <button id="init-audio">Start Audio Engine</button>
+      <span id="audio-status" style="margin-left: 10px; color: red">Stopped</span>
+    </p>
+    <hr />
+
+    <!-- MODULE 11: KARPLUS-STRONG -->
+    <section>
+      <h2>11. Physical Modeling (Karplus-Strong)</h2>
+      <p><strong>Plucked String Synthesis.</strong> A short burst of noise is fed into a feedback delay line with a lowpass filter, simulating a vibrating string.</p>
+      <button id="btn-ks">Pluck</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>String Tension (Pitch): <span id="val-ks-freq">220</span> Hz</label>
+        <input type="range" id="in-ks-freq" min="80" max="880" value="220" />
+        <div class="desc">Controls the delay time, which determines the pitch of the string. Higher = higher note.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Damping: <span id="val-ks-damp">3000</span> Hz</label>
+        <input type="range" id="in-ks-damp" min="500" max="10000" value="3000" />
+        <div class="desc">Lowpass filter cutoff in the feedback loop. Lower = duller, faster decay. Higher = brighter, longer sustain.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Feedback: <span id="val-ks-fb">0.98</span></label>
+        <input type="range" id="in-ks-fb" min="0.90" max="0.999" step="0.001" value="0.980" />
+        <div class="desc">How much signal is fed back through the delay. Higher = longer sustain.</div>
+      </div>
+
+      <canvas id="scope-ks"></canvas>
+    </section>
+
+    <!-- MODULE 12: GRANULAR SYNTHESIS -->
+    <section>
+      <h2>12. Granular Synthesis</h2>
+      <p><strong>Cloud Textures.</strong> A source buffer is sliced into tiny grains (10–100 ms) and scattered to create evolving textures and soundscapes.</p>
+      <button id="btn-gran">Start Granular</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Grain Size: <span id="val-gran-size">50</span> ms</label>
+        <input type="range" id="in-gran-size" min="10" max="100" step="1" value="50" />
+        <div class="desc">Duration of each grain. Shorter = buzzy; Longer = smooth.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Density: <span id="val-gran-density">12</span> grains/s</label>
+        <input type="range" id="in-gran-density" min="1" max="40" step="1" value="12" />
+        <div class="desc">How many grains per second. Low = sparse; High = thick cloud.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Position: <span id="val-gran-pos">0.00</span></label>
+        <input type="range" id="in-gran-pos" min="0" max="1" step="0.01" value="0.00" />
+        <div class="desc">Read position in the source buffer. Scrub through the sound.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Pitch: <span id="val-gran-pitch">1.00</span></label>
+        <input type="range" id="in-gran-pitch" min="0.25" max="2.0" step="0.01" value="1.00" />
+        <div class="desc">Playback rate of each grain. 0.5 = octave down; 2.0 = octave up.</div>
+      </div>
+
+      <canvas id="scope-gran"></canvas>
+    </section>
+
+    <!-- MODULE 13: FEEDBACK LOOPS & CHAOS -->
+    <section>
+      <h2>13. Feedback Loops &amp; Chaos</h2>
+      <p><strong>No-Input Mixing.</strong> A filter feeds back into itself, creating self-oscillating tones from pure feedback. Small parameter changes produce chaotic results.</p>
+      <button id="btn-fb">Start Feedback</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Feedback Amount: <span id="val-fb-amt">0.85</span></label>
+        <input type="range" id="in-fb-amt" min="0" max="0.95" step="0.01" value="0.85" />
+        <div class="desc">How much signal is routed back. Above ~0.7 the loop self-oscillates.</div>
+      </div>
+
+      <div class="control-group">
+        <label>EQ Frequency: <span id="val-fb-freq">800</span> Hz</label>
+        <input type="range" id="in-fb-freq" min="100" max="4000" value="800" />
+        <div class="desc">Pitch of the self-oscillating tone. Controls the bandpass center frequency.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Damping (Q): <span id="val-fb-q">15</span></label>
+        <input type="range" id="in-fb-q" min="1" max="30" step="0.5" value="15" />
+        <div class="desc">Filter resonance. Higher Q = more tonal and sustained; Lower = noisier.</div>
+      </div>
+
+      <canvas id="scope-fb"></canvas>
+    </section>
+
+    <!-- MODULE 14: SPECTRAL PROCESSING (VOCODER) -->
+    <section>
+      <h2>14. Spectral Processing (FFT Vocoder)</h2>
+      <p><strong>8-Band Vocoder.</strong> Bandpass filters analyze a modulator's spectrum and impose it onto a carrier signal, creating the classic vocoder effect.</p>
+      <button id="btn-voc">Start Vocoder</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Carrier Type</label>
+        <select id="in-voc-carrier">
+          <option value="sawtooth">Sawtooth (Bright)</option>
+          <option value="noise">Noise (Whisper)</option>
+          <option value="square">Square (Hollow)</option>
+        </select>
+        <div class="desc">The sound source shaped by the vocoder. Sawtooth = classic robot voice.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Carrier Pitch: <span id="val-voc-pitch">110</span> Hz</label>
+        <input type="range" id="in-voc-pitch" min="50" max="440" value="110" />
+        <div class="desc">Fundamental frequency of the carrier oscillator.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Mod Sweep Speed: <span id="val-voc-speed">0.30</span> Hz</label>
+        <input type="range" id="in-voc-speed" min="0.05" max="2.0" step="0.01" value="0.30" />
+        <div class="desc">How fast the modulator sweeps through harmonics, shaping the vocoder output.</div>
+      </div>
+
+      <canvas id="scope-voc"></canvas>
+    </section>
+
+    <script>
+      // --- AUDIO ENGINE CONTEXT ---
+      let ctx;
+      let isAudioStarted = false;
+      const statusEl = document.getElementById("audio-status");
+      const initBtn = document.getElementById("init-audio");
+
+      async function initAudio() {
+        if (!ctx) {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+        isAudioStarted = true;
+        statusEl.innerText = "Running";
+        statusEl.style.color = "green";
+        initBtn.disabled = true;
+      }
+      initBtn.addEventListener("click", initAudio);
+
+      // --- SCOPE VISUALIZER HELPER ---
+      function createScope(canvasId, sourceNode) {
+        const canvas = document.getElementById(canvasId);
+        const canvasCtx = canvas.getContext("2d");
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        sourceNode.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+          if (!document.getElementById(canvasId)) return;
+          requestAnimationFrame(draw);
+          analyser.getByteTimeDomainData(dataArray);
+
+          canvasCtx.fillStyle = "#fff";
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = "#000";
+          canvasCtx.beginPath();
+
+          const sliceWidth = (canvas.width * 1.0) / bufferLength;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) canvasCtx.moveTo(x, y);
+            else canvasCtx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          canvasCtx.lineTo(canvas.width, canvas.height / 2);
+          canvasCtx.stroke();
+        }
+        draw();
+        return analyser;
+      }
+
+      // --- MODULE 11: KARPLUS-STRONG ---
+      let ksMaster = null;
+      const btnKs = document.getElementById("btn-ks");
+
+      btnKs.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (!ksMaster) {
+          ksMaster = ctx.createGain();
+          ksMaster.gain.value = 0.7;
+          const analyser = createScope("scope-ks", ksMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        const freq = parseFloat(document.getElementById("in-ks-freq").value);
+        const damp = parseFloat(document.getElementById("in-ks-damp").value);
+        const fb = parseFloat(document.getElementById("in-ks-fb").value);
+        const delayTime = 1 / freq;
+
+        // Create noise burst (excitation)
+        const burstLen = Math.floor(ctx.sampleRate * delayTime);
+        const noiseBuffer = ctx.createBuffer(1, burstLen, ctx.sampleRate);
+        const noiseData = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < burstLen; i++) {
+          noiseData[i] = Math.random() * 2 - 1;
+        }
+        const noiseSrc = ctx.createBufferSource();
+        noiseSrc.buffer = noiseBuffer;
+
+        // Feedback delay line
+        const delay = ctx.createDelay(1);
+        delay.delayTime.value = delayTime;
+
+        const lpf = ctx.createBiquadFilter();
+        lpf.type = "lowpass";
+        lpf.frequency.value = damp;
+        lpf.Q.value = 0;
+
+        const fbGain = ctx.createGain();
+        fbGain.gain.value = fb;
+
+        const output = ctx.createGain();
+        output.gain.value = 1.0;
+
+        // Noise -> delay -> filter -> feedback gain -> delay (loop)
+        noiseSrc.connect(delay);
+        delay.connect(lpf);
+        lpf.connect(fbGain);
+        fbGain.connect(delay);
+
+        // Tap from the delay for output
+        delay.connect(output);
+        output.connect(ksMaster);
+
+        noiseSrc.start();
+
+        // Auto-stop after a few seconds
+        const duration = 4;
+        output.gain.setValueAtTime(1.0, ctx.currentTime + duration - 0.5);
+        output.gain.linearRampToValueAtTime(0, ctx.currentTime + duration);
+        setTimeout(() => {
+          try {
+            noiseSrc.disconnect();
+            delay.disconnect();
+            lpf.disconnect();
+            fbGain.disconnect();
+            output.disconnect();
+          } catch (e) { /* already disconnected */ }
+        }, (duration + 0.5) * 1000);
+      });
+
+      document.getElementById("in-ks-freq").addEventListener("input", (e) => {
+        document.getElementById("val-ks-freq").innerText = e.target.value;
+      });
+      document.getElementById("in-ks-damp").addEventListener("input", (e) => {
+        document.getElementById("val-ks-damp").innerText = e.target.value;
+      });
+      document.getElementById("in-ks-fb").addEventListener("input", (e) => {
+        document.getElementById("val-ks-fb").innerText = parseFloat(e.target.value).toFixed(3);
+      });
+
+      // --- MODULE 12: GRANULAR SYNTHESIS ---
+      let granRunning = false;
+      let granInterval = null;
+      let granBuffer = null;
+      let granMaster = null;
+      const btnGran = document.getElementById("btn-gran");
+
+      function generateGranularBuffer() {
+        // 2 seconds of a harmonically rich swept tone
+        const len = Math.floor(ctx.sampleRate * 2);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          const t = i / ctx.sampleRate;
+          const f = 100 + 200 * t;
+          const phase = 2 * Math.PI * f * t;
+          data[i] =
+            0.4 * Math.sin(phase) +
+            0.25 * Math.sin(phase * 2) +
+            0.15 * Math.sin(phase * 3) +
+            0.1 * Math.sin(phase * 5) +
+            0.05 * Math.sin(phase * 7);
+        }
+        return buf;
+      }
+
+      function spawnGrain() {
+        if (!granRunning || !granBuffer) return;
+
+        const grainSize = parseInt(document.getElementById("in-gran-size").value) / 1000;
+        const position = parseFloat(document.getElementById("in-gran-pos").value);
+        const pitch = parseFloat(document.getElementById("in-gran-pitch").value);
+
+        const src = ctx.createBufferSource();
+        src.buffer = granBuffer;
+        src.playbackRate.value = pitch;
+
+        // Grain envelope (triangular window)
+        const env = ctx.createGain();
+        const now = ctx.currentTime;
+        env.gain.setValueAtTime(0, now);
+        env.gain.linearRampToValueAtTime(0.3, now + grainSize * 0.3);
+        env.gain.linearRampToValueAtTime(0, now + grainSize);
+
+        src.connect(env);
+        env.connect(granMaster);
+
+        // Start at position with slight random jitter for cloud effect
+        const bufDuration = granBuffer.duration;
+        const offset = position * (bufDuration - grainSize);
+        const jitter = (Math.random() - 0.5) * 0.05 * bufDuration;
+        const safeOffset = Math.max(0, Math.min(offset + jitter, bufDuration - grainSize));
+
+        src.start(now, safeOffset, grainSize);
+      }
+
+      function startGranInterval() {
+        const density = parseInt(document.getElementById("in-gran-density").value);
+        const intervalMs = 1000 / density;
+        granInterval = setInterval(spawnGrain, intervalMs);
+      }
+
+      btnGran.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (granRunning) {
+          clearInterval(granInterval);
+          granRunning = false;
+          btnGran.innerText = "Start Granular";
+          return;
+        }
+
+        if (!granMaster) {
+          granMaster = ctx.createGain();
+          granMaster.gain.value = 0.8;
+          const analyser = createScope("scope-gran", granMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        if (!granBuffer) {
+          granBuffer = generateGranularBuffer();
+        }
+
+        granRunning = true;
+        startGranInterval();
+        btnGran.innerText = "Stop Granular";
+      });
+
+      document.getElementById("in-gran-size").addEventListener("input", (e) => {
+        document.getElementById("val-gran-size").innerText = e.target.value;
+      });
+      document.getElementById("in-gran-density").addEventListener("input", (e) => {
+        document.getElementById("val-gran-density").innerText = e.target.value;
+        if (granRunning) {
+          clearInterval(granInterval);
+          startGranInterval();
+        }
+      });
+      document.getElementById("in-gran-pos").addEventListener("input", (e) => {
+        document.getElementById("val-gran-pos").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-gran-pitch").addEventListener("input", (e) => {
+        document.getElementById("val-gran-pitch").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+
+      // --- MODULE 13: FEEDBACK LOOPS & CHAOS ---
+      let fbRunning = false;
+      let fbNodes = null;
+      let fbMaster = null;
+      let fbExciteInterval = null;
+      const btnFb = document.getElementById("btn-fb");
+
+      btnFb.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (fbRunning) {
+          clearInterval(fbExciteInterval);
+          try {
+            fbNodes.inputGain.disconnect();
+            fbNodes.filter.disconnect();
+            fbNodes.fbGain.disconnect();
+            fbNodes.limiter.disconnect();
+          } catch (e) { /* already disconnected */ }
+          fbNodes = null;
+          fbRunning = false;
+          btnFb.innerText = "Start Feedback";
+          return;
+        }
+
+        if (!fbMaster) {
+          fbMaster = ctx.createGain();
+          fbMaster.gain.value = 0.5;
+          const analyser = createScope("scope-fb", fbMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        const fbAmt = parseFloat(document.getElementById("in-fb-amt").value);
+        const fbFreq = parseFloat(document.getElementById("in-fb-freq").value);
+        const fbQ = parseFloat(document.getElementById("in-fb-q").value);
+
+        // Feedback loop: inputGain -> filter -> limiter -> fbGain -> inputGain
+        const inputGain = ctx.createGain();
+        inputGain.gain.value = 1.0;
+
+        const filter = ctx.createBiquadFilter();
+        filter.type = "bandpass";
+        filter.frequency.value = fbFreq;
+        filter.Q.value = fbQ;
+
+        // Soft limiter (waveshaper) to prevent runaway feedback
+        const limiter = ctx.createWaveShaper();
+        const curve = new Float32Array(8192);
+        for (let i = 0; i < 8192; i++) {
+          const x = (i * 2) / 8192 - 1;
+          curve[i] = Math.tanh(x * 2);
+        }
+        limiter.curve = curve;
+        limiter.oversample = "4x";
+
+        const fbGain = ctx.createGain();
+        fbGain.gain.value = fbAmt;
+
+        // Wire up feedback loop
+        inputGain.connect(filter);
+        filter.connect(limiter);
+        limiter.connect(fbGain);
+        fbGain.connect(inputGain);
+
+        // Output tap from limiter
+        limiter.connect(fbMaster);
+
+        fbNodes = { inputGain, filter, fbGain, limiter };
+
+        // Excite the loop with periodic tiny noise bursts
+        function excite() {
+          const burstLen = Math.floor(ctx.sampleRate * 0.004);
+          const buf = ctx.createBuffer(1, burstLen, ctx.sampleRate);
+          const d = buf.getChannelData(0);
+          for (let i = 0; i < burstLen; i++) {
+            d[i] = (Math.random() * 2 - 1) * 0.2;
+          }
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(inputGain);
+          src.start();
+        }
+
+        excite();
+        fbExciteInterval = setInterval(excite, 800);
+
+        fbRunning = true;
+        btnFb.innerText = "Stop Feedback";
+      });
+
+      document.getElementById("in-fb-amt").addEventListener("input", (e) => {
+        document.getElementById("val-fb-amt").innerText = parseFloat(e.target.value).toFixed(2);
+        if (fbNodes) fbNodes.fbGain.gain.value = e.target.value;
+      });
+      document.getElementById("in-fb-freq").addEventListener("input", (e) => {
+        document.getElementById("val-fb-freq").innerText = e.target.value;
+        if (fbNodes) fbNodes.filter.frequency.value = e.target.value;
+      });
+      document.getElementById("in-fb-q").addEventListener("input", (e) => {
+        document.getElementById("val-fb-q").innerText = e.target.value;
+        if (fbNodes) fbNodes.filter.Q.value = e.target.value;
+      });
+
+      // --- MODULE 14: SPECTRAL PROCESSING (VOCODER) ---
+      let vocRunning = false;
+      let vocNodes = null;
+      let vocMaster = null;
+      let vocAnimFrame = null;
+      const btnVoc = document.getElementById("btn-voc");
+      const VOC_BANDS = 8;
+      const VOC_BAND_FREQS = [125, 250, 500, 1000, 2000, 4000, 6000, 8000];
+
+      function createNoiseSource() {
+        const bufLen = ctx.sampleRate * 2;
+        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < bufLen; i++) {
+          d[i] = Math.random() * 2 - 1;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.loop = true;
+        return src;
+      }
+
+      btnVoc.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (vocRunning) {
+          if (vocAnimFrame) cancelAnimationFrame(vocAnimFrame);
+          try {
+            if (vocNodes.modOsc) vocNodes.modOsc.stop();
+            if (vocNodes.modLfo) vocNodes.modLfo.stop();
+            if (vocNodes.carrierOsc) vocNodes.carrierOsc.stop();
+            if (vocNodes.carrierNoise) vocNodes.carrierNoise.stop();
+          } catch (e) { /* already stopped */ }
+          vocNodes = null;
+          vocRunning = false;
+          btnVoc.innerText = "Start Vocoder";
+          return;
+        }
+
+        if (!vocMaster) {
+          vocMaster = ctx.createGain();
+          vocMaster.gain.value = 0.6;
+          const analyser = createScope("scope-voc", vocMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        const carrierType = document.getElementById("in-voc-carrier").value;
+        const carrierPitch = parseFloat(document.getElementById("in-voc-pitch").value);
+        const modSpeed = parseFloat(document.getElementById("in-voc-speed").value);
+
+        // Modulator: sawtooth with LFO-swept filter to create moving harmonics
+        const modOsc = ctx.createOscillator();
+        modOsc.type = "sawtooth";
+        modOsc.frequency.value = 130;
+
+        const modFilter = ctx.createBiquadFilter();
+        modFilter.type = "lowpass";
+        modFilter.frequency.value = 1500;
+        modFilter.Q.value = 5;
+
+        const modLfo = ctx.createOscillator();
+        modLfo.frequency.value = modSpeed;
+        const modLfoGain = ctx.createGain();
+        modLfoGain.gain.value = 2000;
+        modLfo.connect(modLfoGain);
+        modLfoGain.connect(modFilter.frequency);
+
+        modOsc.connect(modFilter);
+
+        // Carrier: sawtooth, noise, or square
+        let carrierOsc = null;
+        let carrierNoise = null;
+        let carrierNode;
+
+        if (carrierType === "noise") {
+          carrierNoise = createNoiseSource();
+          carrierNode = carrierNoise;
+        } else {
+          carrierOsc = ctx.createOscillator();
+          carrierOsc.type = carrierType;
+          carrierOsc.frequency.value = carrierPitch;
+          carrierNode = carrierOsc;
+        }
+
+        // 8-band analysis + synthesis
+        const analysisBands = [];
+        const synthBands = [];
+        const bandAnalysers = [];
+        const bandGains = [];
+
+        for (let i = 0; i < VOC_BANDS; i++) {
+          const freq = VOC_BAND_FREQS[i];
+          const q = 4;
+
+          // Analysis: modulator -> bandpass -> analyser (for level detection)
+          const aBp = ctx.createBiquadFilter();
+          aBp.type = "bandpass";
+          aBp.frequency.value = freq;
+          aBp.Q.value = q;
+          modFilter.connect(aBp);
+
+          const aAnalyser = ctx.createAnalyser();
+          aAnalyser.fftSize = 256;
+          aBp.connect(aAnalyser);
+
+          analysisBands.push(aBp);
+          bandAnalysers.push(aAnalyser);
+
+          // Synthesis: carrier -> bandpass -> gain (controlled by analysis) -> output
+          const sBp = ctx.createBiquadFilter();
+          sBp.type = "bandpass";
+          sBp.frequency.value = freq;
+          sBp.Q.value = q;
+          carrierNode.connect(sBp);
+
+          const sGain = ctx.createGain();
+          sGain.gain.value = 0;
+          sBp.connect(sGain);
+          sGain.connect(vocMaster);
+
+          synthBands.push(sBp);
+          bandGains.push(sGain);
+        }
+
+        // Start all sources
+        modOsc.start();
+        modLfo.start();
+        if (carrierOsc) carrierOsc.start();
+        if (carrierNoise) carrierNoise.start();
+
+        vocNodes = { modOsc, modLfo, modLfoGain, modFilter, carrierOsc, carrierNoise, analysisBands, synthBands, bandAnalysers, bandGains };
+
+        // Envelope follower: read analysis band levels and apply to synthesis gains
+        const aData = new Uint8Array(128);
+        const smoothed = new Float32Array(VOC_BANDS);
+
+        function vocProcess() {
+          if (!vocRunning) return;
+          vocAnimFrame = requestAnimationFrame(vocProcess);
+
+          for (let i = 0; i < VOC_BANDS; i++) {
+            bandAnalysers[i].getByteTimeDomainData(aData);
+            // RMS level detection
+            let sum = 0;
+            for (let j = 0; j < aData.length; j++) {
+              const v = (aData[j] - 128) / 128;
+              sum += v * v;
+            }
+            const rms = Math.sqrt(sum / aData.length);
+            smoothed[i] = smoothed[i] * 0.7 + rms * 0.3;
+            bandGains[i].gain.value = Math.min(smoothed[i] * 4, 1.0);
+          }
+
+          drawVocoderBands(smoothed);
+        }
+        vocProcess();
+
+        vocRunning = true;
+        btnVoc.innerText = "Stop Vocoder";
+      });
+
+      function drawVocoderBands(levels) {
+        const canvas = document.getElementById("scope-voc");
+        const c = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // Overlay band bars on the lower portion of the canvas
+        const barW = w / VOC_BANDS;
+        const barArea = h * 0.4;
+        const yOffset = h * 0.6;
+
+        c.fillStyle = "rgba(255,255,255,0.85)";
+        c.fillRect(0, yOffset, w, barArea);
+
+        c.fillStyle = "#333";
+        c.font = "10px monospace";
+        c.fillText("Vocoder Bands", 4, yOffset + 12);
+
+        const colors = ["#E91E63", "#FF5722", "#FF9800", "#FFEB3B", "#4CAF50", "#00BCD4", "#2196F3", "#9C27B0"];
+        for (let i = 0; i < VOC_BANDS; i++) {
+          const barH = Math.max(2, levels[i] * barArea * 3);
+          c.fillStyle = colors[i];
+          c.fillRect(i * barW + 4, yOffset + barArea - barH - 4, barW - 8, barH);
+          c.fillStyle = "#333";
+          c.font = "8px monospace";
+          c.fillText(VOC_BAND_FREQS[i], i * barW + 4, yOffset + barArea - 2);
+        }
+      }
+
+      document.getElementById("in-voc-carrier").addEventListener("change", () => {
+        if (vocRunning) {
+          btnVoc.click();
+          setTimeout(() => btnVoc.click(), 100);
+        }
+      });
+      document.getElementById("in-voc-pitch").addEventListener("input", (e) => {
+        document.getElementById("val-voc-pitch").innerText = e.target.value;
+        if (vocNodes && vocNodes.carrierOsc) {
+          vocNodes.carrierOsc.frequency.value = e.target.value;
+        }
+      });
+      document.getElementById("in-voc-speed").addEventListener("input", (e) => {
+        document.getElementById("val-voc-speed").innerText = parseFloat(e.target.value).toFixed(2);
+        if (vocNodes) {
+          vocNodes.modLfo.frequency.value = e.target.value;
+        }
+      });
+    </script>
+  </body>
+</html>
