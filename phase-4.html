@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modular Synthesis: Phase 4</title>
+    <link rel="stylesheet" href="shared/elements.css" />
+    <link rel="stylesheet" href="shared/synth-ui.css" />
+    <link rel="stylesheet" href="shared/tutorial.css" />
+  </head>
+  <body>
+    <h1>Web Audio Modular: Phase 4</h1>
+    <p>
+      <button id="init-audio">Start Audio Engine</button>
+      <span id="audio-status" style="margin-left: 10px; color: red">Stopped</span>
+    </p>
+    <hr />
+
+    <!-- MODULE 15: POLYPHONY & VOICE ALLOCATION -->
+    <section>
+      <h2>15. Polyphony &amp; Voice Allocation</h2>
+      <p><strong>Round-Robin Voices.</strong> A pool of 4 oscillator voices handles multiple simultaneous notes. Each incoming note is assigned to the next available voice in rotation.</p>
+      <button id="btn-poly">Start Poly Engine</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Waveform</label>
+        <select id="in-poly-wave">
+          <option value="sawtooth">Sawtooth (Bright)</option>
+          <option value="sine">Sine (Pure)</option>
+          <option value="triangle">Triangle (Hollow)</option>
+          <option value="square">Square (Gameboy)</option>
+        </select>
+        <div class="desc">Waveform for all voices.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Attack: <span id="val-poly-atk">0.02</span> s</label>
+        <input type="range" id="in-poly-atk" min="0.01" max="1.0" step="0.01" value="0.02" />
+        <div class="desc">How fast each voice fades in.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Release: <span id="val-poly-rel">0.40</span> s</label>
+        <input type="range" id="in-poly-rel" min="0.05" max="2.0" step="0.01" value="0.40" />
+        <div class="desc">How fast each voice fades out after the note ends.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Note Keyboard</label>
+        <div id="poly-keys" style="display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;"></div>
+        <div class="desc">Click a note to trigger it on the next voice. Watch the voice allocator below.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Voice Allocator</label>
+        <div id="poly-voices" style="display:flex; gap:8px; margin-top:6px;"></div>
+        <div class="desc">4 voices shown left-to-right. The highlighted voice is the next to be assigned.</div>
+      </div>
+
+      <canvas id="scope-poly"></canvas>
+    </section>
+
+    <!-- MODULE 16: FUNCTION GENERATORS (SLOPE) -->
+    <section>
+      <h2>16. Function Generators (Slope)</h2>
+      <p><strong>The Swiss Army Knife of Modulation.</strong> A Rise/Fall generator defines a function by its slope times. Modes: One-shot (Envelope), Cycling (LFO), or Slew (Portamento).</p>
+      <button id="btn-func">Start Function Gen</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Mode</label>
+        <select id="in-func-mode">
+          <option value="oneshot">One-shot (Envelope)</option>
+          <option value="cycling">Cycling (LFO)</option>
+          <option value="slew">Slew (Portamento)</option>
+        </select>
+        <div class="desc">One-shot triggers once; Cycling repeats; Slew smooths pitch changes.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Rise Time: <span id="val-func-rise">0.10</span> s</label>
+        <input type="range" id="in-func-rise" min="0.01" max="2.0" step="0.01" value="0.10" />
+        <div class="desc">Attack slope — time to ramp up.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Fall Time: <span id="val-func-fall">0.30</span> s</label>
+        <input type="range" id="in-func-fall" min="0.01" max="2.0" step="0.01" value="0.30" />
+        <div class="desc">Decay slope — time to ramp down.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Mod Depth: <span id="val-func-depth">200</span> Hz</label>
+        <input type="range" id="in-func-depth" min="0" max="800" value="200" />
+        <div class="desc">How much the function modulates the carrier oscillator's frequency.</div>
+      </div>
+
+      <div class="control-group">
+        <button id="btn-func-trigger" disabled>Trigger</button>
+        <div class="desc">Fire a one-shot envelope or set a new slew target.</div>
+      </div>
+
+      <canvas id="scope-func"></canvas>
+      <canvas id="scope-func-shape"></canvas>
+    </section>
+
+    <script>
+      // --- AUDIO ENGINE CONTEXT ---
+      let ctx;
+      let isAudioStarted = false;
+      const statusEl = document.getElementById("audio-status");
+      const initBtn = document.getElementById("init-audio");
+
+      async function initAudio() {
+        if (!ctx) {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+        isAudioStarted = true;
+        statusEl.innerText = "Running";
+        statusEl.style.color = "green";
+        initBtn.disabled = true;
+      }
+      initBtn.addEventListener("click", initAudio);
+
+      // --- SCOPE VISUALIZER HELPER ---
+      function createScope(canvasId, sourceNode) {
+        const canvas = document.getElementById(canvasId);
+        const canvasCtx = canvas.getContext("2d");
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        sourceNode.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+          if (!document.getElementById(canvasId)) return;
+          requestAnimationFrame(draw);
+          analyser.getByteTimeDomainData(dataArray);
+
+          canvasCtx.fillStyle = "#fff";
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = "#000";
+          canvasCtx.beginPath();
+
+          const sliceWidth = (canvas.width * 1.0) / bufferLength;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) canvasCtx.moveTo(x, y);
+            else canvasCtx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          canvasCtx.lineTo(canvas.width, canvas.height / 2);
+          canvasCtx.stroke();
+        }
+        draw();
+        return analyser;
+      }
+
+      // --- MODULE 15: POLYPHONY & VOICE ALLOCATION ---
+      const NUM_VOICES = 4;
+      const VOICE_COLORS = ["#E91E63", "#2196F3", "#4CAF50", "#FF9800"];
+      const NOTE_NAMES = ["C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"];
+      const NOTE_FREQS = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25];
+      let polyRunning = false;
+      let polyMaster = null;
+      let polyVoices = [];
+      let polyRRIndex = 0;
+
+      // Build keyboard buttons
+      const polyKeysDiv = document.getElementById("poly-keys");
+      NOTE_NAMES.forEach((name, i) => {
+        const btn = document.createElement("button");
+        btn.innerText = name;
+        btn.style.padding = "8px 14px";
+        btn.style.fontSize = "13px";
+        btn.dataset.noteIndex = i;
+        btn.addEventListener("click", () => triggerPolyNote(i));
+        polyKeysDiv.appendChild(btn);
+      });
+
+      // Build voice display boxes
+      const polyVoicesDiv = document.getElementById("poly-voices");
+      for (let i = 0; i < NUM_VOICES; i++) {
+        const box = document.createElement("div");
+        box.id = "poly-voice-" + i;
+        box.style.cssText = "width:80px; height:70px; border:2px solid #999; text-align:center; padding:6px; font-size:11px; font-family:monospace; background:#eee; transition:background 0.15s;";
+        box.innerHTML = "<div style='font-weight:bold;'>Voice " + (i + 1) + "</div><div id='pv-note-" + i + "'>—</div><div id='pv-state-" + i + "' style='color:#999;'>idle</div>";
+        polyVoicesDiv.appendChild(box);
+      }
+
+      const btnPoly = document.getElementById("btn-poly");
+      btnPoly.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (polyRunning) {
+          polyVoices.forEach((v) => {
+            try { v.osc.stop(); } catch (e) { /* already stopped */ }
+          });
+          polyVoices = [];
+          polyRRIndex = 0;
+          polyRunning = false;
+          btnPoly.innerText = "Start Poly Engine";
+          resetVoiceDisplay();
+          return;
+        }
+
+        if (!polyMaster) {
+          polyMaster = ctx.createGain();
+          polyMaster.gain.value = 0.6;
+          const analyser = createScope("scope-poly", polyMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        // Create 4 persistent oscillator voices
+        const waveType = document.getElementById("in-poly-wave").value;
+        for (let i = 0; i < NUM_VOICES; i++) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = waveType;
+          osc.frequency.value = 0;
+          gain.gain.value = 0;
+          osc.connect(gain);
+          gain.connect(polyMaster);
+          osc.start();
+          polyVoices.push({ osc, gain, active: false, note: "—", timeout: null });
+        }
+
+        polyRunning = true;
+        highlightNextVoice();
+        btnPoly.innerText = "Stop Poly Engine";
+      });
+
+      function triggerPolyNote(noteIndex) {
+        if (!polyRunning) return;
+        const voice = polyVoices[polyRRIndex];
+        const freq = NOTE_FREQS[noteIndex];
+        const name = NOTE_NAMES[noteIndex];
+        const atk = parseFloat(document.getElementById("in-poly-atk").value);
+        const rel = parseFloat(document.getElementById("in-poly-rel").value);
+        const now = ctx.currentTime;
+        const waveType = document.getElementById("in-poly-wave").value;
+
+        if (voice.timeout) clearTimeout(voice.timeout);
+        voice.osc.type = waveType;
+        voice.osc.frequency.setValueAtTime(freq, now);
+        voice.gain.gain.cancelScheduledValues(now);
+        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        voice.gain.gain.linearRampToValueAtTime(0.3, now + atk);
+        voice.gain.gain.linearRampToValueAtTime(0.001, now + atk + rel);
+
+        voice.active = true;
+        voice.note = name;
+        updateVoiceDisplay(polyRRIndex, name, true);
+
+        const vi = polyRRIndex;
+        voice.timeout = setTimeout(() => {
+          voice.active = false;
+          voice.note = "—";
+          updateVoiceDisplay(vi, "—", false);
+        }, (atk + rel) * 1000);
+
+        polyRRIndex = (polyRRIndex + 1) % NUM_VOICES;
+        highlightNextVoice();
+      }
+
+      function updateVoiceDisplay(idx, note, active) {
+        const box = document.getElementById("poly-voice-" + idx);
+        const noteEl = document.getElementById("pv-note-" + idx);
+        const stateEl = document.getElementById("pv-state-" + idx);
+        noteEl.innerText = note;
+        stateEl.innerText = active ? "playing" : "idle";
+        stateEl.style.color = active ? VOICE_COLORS[idx] : "#999";
+        box.style.background = active ? VOICE_COLORS[idx] + "33" : "#eee";
+        box.style.borderColor = active ? VOICE_COLORS[idx] : "#999";
+      }
+
+      function highlightNextVoice() {
+        for (let i = 0; i < NUM_VOICES; i++) {
+          const box = document.getElementById("poly-voice-" + i);
+          if (i === polyRRIndex && polyRunning) {
+            box.style.boxShadow = "0 0 8px " + VOICE_COLORS[i];
+          } else {
+            box.style.boxShadow = "none";
+          }
+        }
+      }
+
+      function resetVoiceDisplay() {
+        for (let i = 0; i < NUM_VOICES; i++) {
+          updateVoiceDisplay(i, "—", false);
+          document.getElementById("poly-voice-" + i).style.boxShadow = "none";
+        }
+      }
+
+      document.getElementById("in-poly-atk").addEventListener("input", (e) => {
+        document.getElementById("val-poly-atk").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-poly-rel").addEventListener("input", (e) => {
+        document.getElementById("val-poly-rel").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-poly-wave").addEventListener("change", () => {
+        const waveType = document.getElementById("in-poly-wave").value;
+        polyVoices.forEach((v) => { v.osc.type = waveType; });
+      });
+
+      // --- MODULE 16: FUNCTION GENERATORS (SLOPE) ---
+      let funcRunning = false;
+      let funcMaster = null;
+      let funcCarrier = null;
+      let funcBaseFreq = 330;
+      let funcCycleTimeout = null;
+      let funcValue = 0;
+      let funcHistory = [];
+      const FUNC_HISTORY_LEN = 200;
+      let funcShapeAnim = null;
+      let funcSlewTarget = 0;
+
+      const btnFunc = document.getElementById("btn-func");
+      const btnFuncTrigger = document.getElementById("btn-func-trigger");
+
+      btnFunc.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (funcRunning) {
+          stopFuncGen();
+          return;
+        }
+
+        if (!funcMaster) {
+          funcMaster = ctx.createGain();
+          funcMaster.gain.value = 0.3;
+          const analyser = createScope("scope-func", funcMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        funcCarrier = ctx.createOscillator();
+        funcCarrier.type = "sawtooth";
+        funcCarrier.frequency.value = funcBaseFreq;
+        funcCarrier.connect(funcMaster);
+        funcCarrier.start();
+
+        funcRunning = true;
+        funcValue = 0;
+        funcHistory = new Array(FUNC_HISTORY_LEN).fill(0);
+        btnFunc.innerText = "Stop Function Gen";
+        btnFuncTrigger.disabled = false;
+
+        drawFuncShape();
+
+        const mode = document.getElementById("in-func-mode").value;
+        if (mode === "cycling") startCycling();
+      });
+
+      function stopFuncGen() {
+        if (funcCycleTimeout) { clearTimeout(funcCycleTimeout); funcCycleTimeout = null; }
+        if (funcShapeAnim) { cancelAnimationFrame(funcShapeAnim); funcShapeAnim = null; }
+        try { funcCarrier.stop(); } catch (e) { /* already stopped */ }
+        funcCarrier = null;
+        funcRunning = false;
+        funcValue = 0;
+        btnFunc.innerText = "Start Function Gen";
+        btnFuncTrigger.disabled = true;
+      }
+
+      function fireOneShot() {
+        if (!funcRunning || !funcCarrier) return;
+        const rise = parseFloat(document.getElementById("in-func-rise").value);
+        const fall = parseFloat(document.getElementById("in-func-fall").value);
+        const depth = parseFloat(document.getElementById("in-func-depth").value);
+        const now = ctx.currentTime;
+
+        funcCarrier.frequency.cancelScheduledValues(now);
+        funcCarrier.frequency.setValueAtTime(funcBaseFreq, now);
+        funcCarrier.frequency.linearRampToValueAtTime(funcBaseFreq + depth, now + rise);
+        funcCarrier.frequency.linearRampToValueAtTime(funcBaseFreq, now + rise + fall);
+
+        animateFuncValue(rise, fall);
+      }
+
+      function animateFuncValue(rise, fall) {
+        const totalMs = (rise + fall) * 1000;
+        const riseMs = rise * 1000;
+        const start = performance.now();
+        function tick() {
+          if (!funcRunning) return;
+          const elapsed = performance.now() - start;
+          if (elapsed < riseMs) {
+            funcValue = elapsed / riseMs;
+          } else if (elapsed < totalMs) {
+            funcValue = 1 - (elapsed - riseMs) / (fall * 1000);
+          } else {
+            funcValue = 0;
+            return;
+          }
+          requestAnimationFrame(tick);
+        }
+        requestAnimationFrame(tick);
+      }
+
+      function startCycling() {
+        if (!funcRunning) return;
+        const rise = parseFloat(document.getElementById("in-func-rise").value);
+        const fall = parseFloat(document.getElementById("in-func-fall").value);
+
+        fireOneShot();
+        const period = (rise + fall) * 1000;
+        funcCycleTimeout = setTimeout(() => startCycling(), period);
+      }
+
+      function fireSlewTarget() {
+        if (!funcRunning || !funcCarrier) return;
+        const rise = parseFloat(document.getElementById("in-func-rise").value);
+        const depth = parseFloat(document.getElementById("in-func-depth").value);
+
+        funcSlewTarget = funcSlewTarget === 0 ? 1 : 0;
+        const targetFreq = funcBaseFreq + depth * funcSlewTarget;
+        const now = ctx.currentTime;
+
+        funcCarrier.frequency.cancelScheduledValues(now);
+        funcCarrier.frequency.setValueAtTime(funcCarrier.frequency.value, now);
+        funcCarrier.frequency.linearRampToValueAtTime(targetFreq, now + rise);
+
+        const startVal = funcValue;
+        const endVal = funcSlewTarget;
+        const startTime = performance.now();
+        const durMs = rise * 1000;
+        function tick() {
+          if (!funcRunning) return;
+          const elapsed = performance.now() - startTime;
+          if (elapsed < durMs) {
+            funcValue = startVal + (endVal - startVal) * (elapsed / durMs);
+            requestAnimationFrame(tick);
+          } else {
+            funcValue = endVal;
+          }
+        }
+        requestAnimationFrame(tick);
+      }
+
+      btnFuncTrigger.addEventListener("click", () => {
+        if (!funcRunning) return;
+        const mode = document.getElementById("in-func-mode").value;
+        if (mode === "oneshot") fireOneShot();
+        else if (mode === "slew") fireSlewTarget();
+        else if (mode === "cycling") {
+          if (funcCycleTimeout) clearTimeout(funcCycleTimeout);
+          startCycling();
+        }
+      });
+
+      document.getElementById("in-func-mode").addEventListener("change", () => {
+        if (!funcRunning) return;
+        const mode = document.getElementById("in-func-mode").value;
+        if (funcCycleTimeout) { clearTimeout(funcCycleTimeout); funcCycleTimeout = null; }
+        funcValue = 0;
+        if (mode === "cycling") startCycling();
+      });
+
+      function drawFuncShape() {
+        if (!funcRunning) return;
+        funcShapeAnim = requestAnimationFrame(drawFuncShape);
+
+        funcHistory.push(funcValue);
+        if (funcHistory.length > FUNC_HISTORY_LEN) funcHistory.shift();
+
+        const canvas = document.getElementById("scope-func-shape");
+        const c = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+
+        c.fillStyle = "#fff";
+        c.fillRect(0, 0, w, h);
+
+        c.strokeStyle = "#ddd";
+        c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(0, h * 0.1); c.lineTo(w, h * 0.1);
+        c.moveTo(0, h * 0.9); c.lineTo(w, h * 0.9);
+        c.stroke();
+
+        c.fillStyle = "#999";
+        c.font = "10px monospace";
+        c.fillText("1.0", 2, h * 0.1 + 10);
+        c.fillText("0.0", 2, h * 0.9 - 2);
+        c.fillText("Function Output", w / 2 - 40, 12);
+
+        c.strokeStyle = "#E91E63";
+        c.lineWidth = 2;
+        c.beginPath();
+        const step = w / FUNC_HISTORY_LEN;
+        for (let i = 0; i < funcHistory.length; i++) {
+          const x = i * step;
+          const y = h * 0.9 - funcHistory[i] * h * 0.8;
+          if (i === 0) c.moveTo(x, y);
+          else c.lineTo(x, y);
+        }
+        c.stroke();
+      }
+
+      document.getElementById("in-func-rise").addEventListener("input", (e) => {
+        document.getElementById("val-func-rise").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-func-fall").addEventListener("input", (e) => {
+        document.getElementById("val-func-fall").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-func-depth").addEventListener("input", (e) => {
+        document.getElementById("val-func-depth").innerText = e.target.value;
+      });
+    </script>
+  </body>
+</html>
