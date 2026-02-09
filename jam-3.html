@@ -104,12 +104,12 @@
           <input type="range" id="in-drone-freq" min="40" max="800" value="180" />
         </div>
         <div class="knob">
-          <label title="Feedback amount. Higher = louder, more sustained self-oscillation. Careful above 0.95!">Feedback <span class="val" id="val-drone-fb">0.85</span></label>
-          <input type="range" id="in-drone-fb" min="0" max="0.98" step="0.01" value="0.85" />
+          <label title="Feedback amount. Higher = louder, more sustained self-oscillation.">Feedback <span class="val" id="val-drone-fb">0.70</span></label>
+          <input type="range" id="in-drone-fb" min="0" max="0.90" step="0.01" value="0.70" />
         </div>
         <div class="knob">
-          <label title="Volume of the feedback drone layer.">Volume <span class="val" id="val-drone-vol">0.30</span></label>
-          <input type="range" id="in-drone-vol" min="0" max="1" step="0.01" value="0.30" />
+          <label title="Volume of the feedback drone layer.">Volume <span class="val" id="val-drone-vol">0.15</span></label>
+          <input type="range" id="in-drone-vol" min="0" max="1" step="0.01" value="0.15" />
         </div>
       </div>
 
@@ -125,8 +125,8 @@
           <input type="range" id="in-rev-size" min="1" max="8" step="0.1" value="4.0" />
         </div>
         <div class="knob">
-          <label title="Master output volume.">Master <span class="val" id="val-master">0.70</span></label>
-          <input type="range" id="in-master" min="0" max="1" step="0.01" value="0.70" />
+          <label title="Master output volume.">Master <span class="val" id="val-master">0.50</span></label>
+          <input type="range" id="in-master" min="0" max="1" step="0.01" value="0.50" />
         </div>
       </div>
     </div>
@@ -271,6 +271,14 @@
         analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
 
+        // Limiter (compressor) to prevent harsh peaks
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.value = -12;
+        limiter.knee.value = 6;
+        limiter.ratio.value = 12;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.1;
+
         // Reverb (convolver)
         convolver = ctx.createConvolver();
         convolver.buffer = generateReverb(ctx, gv("in-rev-size"), 3.0);
@@ -279,7 +287,7 @@
         wetGainNode = ctx.createGain();
         wetGainNode.gain.value = gv("in-rev-mix");
 
-        // Reverb routing: reverbBus -> dry + wet(convolver) -> master
+        // Reverb routing: reverbBus -> dry + wet(convolver) -> master -> limiter -> output
         const reverbBus = ctx.createGain();
         reverbBus.gain.value = 1;
         reverbBus.connect(dryGainNode);
@@ -287,7 +295,8 @@
         convolver.connect(wetGainNode);
         dryGainNode.connect(masterGain);
         wetGainNode.connect(masterGain);
-        masterGain.connect(analyser).connect(ctx.destination);
+        masterGain.connect(limiter);
+        limiter.connect(analyser).connect(ctx.destination);
 
         // Layer gain nodes
         grainGain = ctx.createGain();
@@ -330,10 +339,10 @@
         // Grain envelope to avoid clicks
         const env = ctx.createGain();
         const now = ctx.currentTime;
-        const fadeTime = Math.min(size * 0.25, 0.01);
+        const fadeTime = Math.min(size * 0.3, 0.02);
         env.gain.setValueAtTime(0, now);
-        env.gain.linearRampToValueAtTime(0.6, now + fadeTime);
-        env.gain.setValueAtTime(0.6, now + size - fadeTime);
+        env.gain.linearRampToValueAtTime(0.4, now + fadeTime);
+        env.gain.setValueAtTime(0.4, now + size - fadeTime);
         env.gain.linearRampToValueAtTime(0, now + size);
 
         // Slight stereo panning per grain
@@ -476,7 +485,7 @@
         const len = Math.ceil(ctx.sampleRate * 0.05);
         const buf = ctx.createBuffer(1, len, ctx.sampleRate);
         const data = buf.getChannelData(0);
-        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.1;
 
         droneNoiseSource = ctx.createBufferSource();
         droneNoiseSource.buffer = buf;
@@ -590,19 +599,19 @@
         deep: {
           "in-grain-density": 5, "in-grain-size": 70, "in-grain-pos": 0.20, "in-grain-pitch": 0.50,
           "in-string-damp": 800, "in-string-octave": 2, "in-string-rate": 4.0, "in-string-vol": 0.40,
-          "in-drone-freq": 80, "in-drone-fb": 0.90, "in-drone-vol": 0.40,
+          "in-drone-freq": 80, "in-drone-fb": 0.75, "in-drone-vol": 0.20,
           "in-rev-mix": 0.75, "in-rev-size": 6.0, "in-master": 0.70
         },
         bright: {
           "in-grain-density": 20, "in-grain-size": 30, "in-grain-pos": 0.60, "in-grain-pitch": 1.50,
           "in-string-damp": 6000, "in-string-octave": 4, "in-string-rate": 1.2, "in-string-vol": 0.55,
-          "in-drone-freq": 440, "in-drone-fb": 0.80, "in-drone-vol": 0.20,
+          "in-drone-freq": 440, "in-drone-fb": 0.65, "in-drone-vol": 0.12,
           "in-rev-mix": 0.50, "in-rev-size": 3.0, "in-master": 0.65
         },
         dark: {
           "in-grain-density": 3, "in-grain-size": 80, "in-grain-pos": 0.10, "in-grain-pitch": 0.30,
           "in-string-damp": 500, "in-string-octave": 2, "in-string-rate": 5.0, "in-string-vol": 0.30,
-          "in-drone-freq": 60, "in-drone-fb": 0.95, "in-drone-vol": 0.50,
+          "in-drone-freq": 60, "in-drone-fb": 0.80, "in-drone-vol": 0.18,
           "in-rev-mix": 0.85, "in-rev-size": 7.0, "in-master": 0.60
         }
       };
