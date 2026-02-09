@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modular Synthesis: Phase 1 (Raw)</title>
+    <style>
+      /* Minimal layout just to keep things readable */
+      body {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: sans-serif;
+      }
+      section {
+        border: 1px solid #ccc;
+        padding: 20px;
+        margin-bottom: 40px;
+        background-color: #f9f9f9;
+      }
+      h2 {
+        margin-top: 0;
+      }
+      canvas {
+        border: 1px solid #000;
+        background: #fff;
+        display: block;
+        margin-top: 15px;
+        width: 100%;
+        height: 100px;
+      }
+      .control-group {
+        margin-bottom: 15px;
+        padding: 10px;
+        background: #eee;
+        border: 1px solid #ddd;
+      }
+      label {
+        font-weight: bold;
+        display: block;
+      }
+      .desc {
+        font-size: 0.9em;
+        color: #555;
+        margin-top: 5px;
+      }
+      button {
+        font-size: 1em;
+        padding: 5px 10px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Web Audio Modular: Phase 1</h1>
+    <p>
+      <button id="init-audio">Start Audio Engine</button>
+      <span id="audio-status" style="margin-left: 10px; color: red">Stopped</span>
+    </p>
+    <hr />
+
+    <!-- MODULE 1: VCO -->
+    <section>
+      <h2>1. The Oscillator (VCO)</h2>
+      <p><strong>Voltage Controlled Oscillator.</strong> The heart of the synth. It generates the raw waveform.</p>
+      <button id="btn-vco">Start VCO</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Frequency: <span id="val-vco-freq">220</span> Hz</label>
+        <input type="range" id="in-vco-freq" min="50" max="880" value="220" />
+        <div class="desc">Controls Pitch. Higher frequency = higher note.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Waveform</label>
+        <select id="in-vco-type">
+          <option value="sine">Sine (Pure)</option>
+          <option value="triangle">Triangle (Hollow)</option>
+          <option value="sawtooth">Sawtooth (Bright)</option>
+          <option value="square">Square (Gameboy)</option>
+        </select>
+        <div class="desc">Controls Timbre (tone color). Sawtooth is buzzy; Sine is smooth.</div>
+      </div>
+
+      <canvas id="scope-vco"></canvas>
+    </section>
+
+    <!-- MODULE 2: VCA -->
+    <section>
+      <h2>2. The Amplifier (VCA) & Envelope</h2>
+      <p><strong>Voltage Controlled Amplifier.</strong> Shapes the volume over time using an Envelope Generator.</p>
+      <button id="btn-vca">Trigger Note</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Attack Time: <span id="val-env-atk">0.05</span> s</label>
+        <input type="range" id="in-env-atk" min="0.01" max="2.0" step="0.01" value="0.05" />
+        <div class="desc">How fast the sound fades IN. Short = Pluck; Long = Swell.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Release Time: <span id="val-env-rel">0.5</span> s</label>
+        <input type="range" id="in-env-rel" min="0.1" max="3.0" step="0.1" value="0.5" />
+        <div class="desc">How fast the sound fades OUT. Short = Staccato; Long = Bell.</div>
+      </div>
+
+      <canvas id="scope-vca"></canvas>
+    </section>
+
+    <!-- MODULE 3: VCF -->
+    <section>
+      <h2>3. The Filter (VCF) & LFO</h2>
+      <p><strong>Voltage Controlled Filter.</strong> Removes frequencies to sculpt the sound. An LFO modulates the cutoff automatically.</p>
+      <button id="btn-vcf">Start Filtered Drone</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Cutoff Frequency: <span id="val-vcf-cut">1000</span> Hz</label>
+        <input type="range" id="in-vcf-cut" min="100" max="5000" value="1000" />
+        <div class="desc">The "Brightness" knob. Frequencies above this are removed.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Resonance (Q): <span id="val-vcf-res">10</span></label>
+        <input type="range" id="in-vcf-res" min="0" max="20" value="10" />
+        <div class="desc">Boosts volume at the cutoff point. Makes the filter "whistle" or "squelch."</div>
+      </div>
+
+      <div class="control-group">
+        <label>LFO Rate: <span id="val-lfo-rate">2</span> Hz</label>
+        <input type="range" id="in-lfo-rate" min="0.1" max="10" step="0.1" value="2" />
+        <div class="desc">Speed of the automatic modulation. Low = Sweep; High = Wobble.</div>
+      </div>
+
+      <canvas id="scope-vcf"></canvas>
+    </section>
+
+    <!-- MODULE 4: MIXER -->
+    <section>
+      <h2>4. The Mixer</h2>
+      <p><strong>Signal Summing.</strong> Stacking multiple oscillators to create a thick chord texture.</p>
+      <button id="btn-mix">Start Chord</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Osc 1 (Root - Sawtooth)</label>
+        <input type="range" id="in-mix-1" min="0" max="0.5" step="0.01" value="0.2" />
+        <div class="desc">The bass note. Provides the body.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Osc 2 (Third - Square)</label>
+        <input type="range" id="in-mix-2" min="0" max="0.5" step="0.01" value="0" />
+        <div class="desc">The harmony note. Adds a hollow texture.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Osc 3 (Fifth - Triangle)</label>
+        <input type="range" id="in-mix-3" min="0" max="0.5" step="0.01" value="0" />
+        <div class="desc">The top note. Adds a smooth sheen.</div>
+      </div>
+
+      <canvas id="scope-mix"></canvas>
+    </section>
+
+    <!-- MODULE 5: FM & SLEW -->
+    <section>
+      <h2>5. FM Synthesis & Slew</h2>
+      <p><strong>Frequency Modulation.</strong> Using a fast oscillator to vibrate another. <strong>Slew</strong> creates a glide effect.</p>
+      <button id="btn-fm">Start FM Sequence</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>FM Amount: <span id="val-fm-amt">500</span></label>
+        <input type="range" id="in-fm-amt" min="0" max="2000" value="500" />
+        <div class="desc">How hard the modulator vibrates the carrier. High = Metallic/Distorted.</div>
+      </div>
+
+      <div class="control-group">
+        <label>FM Ratio: <span id="val-fm-ratio">2.0</span></label>
+        <input type="range" id="in-fm-ratio" min="0.5" max="5.0" step="0.1" value="2.0" />
+        <div class="desc">Pitch relationship. Whole numbers = Harmonious; Decimals = Clangorous.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Glide (Slew): <span id="val-slew">0.1</span> s</label>
+        <input type="range" id="in-slew" min="0" max="1.0" step="0.05" value="0.1" />
+        <div class="desc">Portamento. Time taken to slide between notes.</div>
+      </div>
+
+      <canvas id="scope-fm"></canvas>
+    </section>
+
+    <!-- MODULE 6: WEST COAST -->
+    <section>
+      <h2>6. West Coast (Wavefolder)</h2>
+      <p><strong>Additive Timbre.</strong> Adding harmonics by folding a sine wave back on itself when it gets too loud.</p>
+      <button id="btn-fold">Start Sine</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Fold Amount: <span id="val-fold">1.0</span></label>
+        <input type="range" id="in-fold" min="1" max="8" step="0.1" value="1.0" />
+        <div class="desc">Amplifies the wave until it folds over. 1.0 = Pure Sine; 8.0 = Aggressive Growl.</div>
+      </div>
+
+      <canvas id="scope-fold"></canvas>
+    </section>
+
+    <script>
+      // --- AUDIO ENGINE CONTEXT ---
+      let ctx;
+      let isAudioStarted = false;
+      const statusEl = document.getElementById("audio-status");
+      const initBtn = document.getElementById("init-audio");
+
+      async function initAudio() {
+        if (!ctx) {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+        isAudioStarted = true;
+        statusEl.innerText = "Running";
+        statusEl.style.color = "green";
+        initBtn.disabled = true;
+      }
+      initBtn.addEventListener("click", initAudio);
+
+      // --- SCOPE VISUALIZER HELPER ---
+      function createScope(canvasId, sourceNode) {
+        const canvas = document.getElementById(canvasId);
+        const canvasCtx = canvas.getContext("2d");
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        sourceNode.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+          if (!document.getElementById(canvasId)) return;
+          requestAnimationFrame(draw);
+          analyser.getByteTimeDomainData(dataArray);
+
+          canvasCtx.fillStyle = "#fff";
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = "#000";
+          canvasCtx.beginPath();
+
+          const sliceWidth = (canvas.width * 1.0) / bufferLength;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) canvasCtx.moveTo(x, y);
+            else canvasCtx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          canvasCtx.lineTo(canvas.width, canvas.height / 2);
+          canvasCtx.stroke();
+        }
+        draw();
+        return analyser;
+      }
+
+      // --- MODULE 1: VCO ---
+      let vco1 = null;
+      const btnVco = document.getElementById("btn-vco");
+
+      btnVco.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (vco1) {
+          vco1.stop();
+          vco1.disconnect();
+          vco1 = null;
+          btnVco.innerText = "Start VCO";
+        } else {
+          vco1 = ctx.createOscillator();
+          const gain = ctx.createGain();
+          gain.gain.value = 0.2;
+
+          vco1.frequency.value = document.getElementById("in-vco-freq").value;
+          vco1.type = document.getElementById("in-vco-type").value;
+
+          vco1.connect(gain);
+          const analyser = createScope("scope-vco", gain);
+          analyser.connect(ctx.destination);
+
+          vco1.start();
+          btnVco.innerText = "Stop VCO";
+        }
+      });
+
+      document.getElementById("in-vco-freq").addEventListener("input", (e) => {
+        document.getElementById("val-vco-freq").innerText = e.target.value;
+        if (vco1) vco1.frequency.value = e.target.value;
+      });
+      document.getElementById("in-vco-type").addEventListener("change", (e) => {
+        if (vco1) vco1.type = e.target.value;
+      });
+
+      // --- MODULE 2: VCA ---
+      const btnVca = document.getElementById("btn-vca");
+      let vcaScopeNode = null;
+
+      btnVca.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        const osc = ctx.createOscillator();
+        const vca = ctx.createGain();
+
+        osc.type = "triangle";
+        osc.frequency.value = 440;
+
+        const atk = parseFloat(document.getElementById("in-env-atk").value);
+        const rel = parseFloat(document.getElementById("in-env-rel").value);
+        const now = ctx.currentTime;
+
+        vca.gain.setValueAtTime(0, now);
+        vca.gain.linearRampToValueAtTime(0.5, now + atk);
+        vca.gain.exponentialRampToValueAtTime(0.001, now + atk + rel);
+
+        osc.connect(vca);
+
+        if (!vcaScopeNode) {
+          const scopeInput = ctx.createGain();
+          createScope("scope-vca", scopeInput).connect(ctx.destination);
+          vcaScopeNode = scopeInput;
+        }
+
+        vca.connect(vcaScopeNode);
+        osc.start(now);
+        osc.stop(now + atk + rel + 0.1);
+      });
+
+      ["in-env-atk", "in-env-rel"].forEach((id) => {
+        document.getElementById(id).addEventListener("input", (e) => {
+          document.getElementById("val-" + id.split("-")[1] + "-" + id.split("-")[2]).innerText = e.target.value;
+        });
+      });
+
+      // --- MODULE 3: VCF ---
+      let vcfOsc, vcfNode, lfoNode, lfoGain;
+      const btnVcf = document.getElementById("btn-vcf");
+
+      btnVcf.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (vcfOsc) {
+          vcfOsc.stop();
+          lfoNode.stop();
+          vcfOsc = null;
+          btnVcf.innerText = "Start Filtered Drone";
+        } else {
+          vcfOsc = ctx.createOscillator();
+          vcfNode = ctx.createBiquadFilter();
+          lfoNode = ctx.createOscillator();
+          lfoGain = ctx.createGain();
+          const master = ctx.createGain();
+
+          vcfOsc.type = "sawtooth";
+          vcfOsc.frequency.value = 110;
+
+          vcfNode.type = "lowpass";
+          vcfNode.frequency.value = document.getElementById("in-vcf-cut").value;
+          vcfNode.Q.value = document.getElementById("in-vcf-res").value;
+
+          lfoNode.frequency.value = document.getElementById("in-lfo-rate").value;
+          lfoGain.gain.value = 1000;
+
+          vcfOsc.connect(vcfNode);
+          lfoNode.connect(lfoGain);
+          lfoGain.connect(vcfNode.frequency);
+          vcfNode.connect(master);
+          master.gain.value = 0.3;
+
+          const analyser = createScope("scope-vcf", master);
+          analyser.connect(ctx.destination);
+
+          vcfOsc.start();
+          lfoNode.start();
+          btnVcf.innerText = "Stop Filtered Drone";
+        }
+      });
+
+      document.getElementById("in-vcf-cut").addEventListener("input", (e) => {
+        document.getElementById("val-vcf-cut").innerText = e.target.value;
+        if (vcfNode) vcfNode.frequency.value = e.target.value;
+      });
+      document.getElementById("in-vcf-res").addEventListener("input", (e) => {
+        document.getElementById("val-vcf-res").innerText = e.target.value;
+        if (vcfNode) vcfNode.Q.value = e.target.value;
+      });
+      document.getElementById("in-lfo-rate").addEventListener("input", (e) => {
+        document.getElementById("val-lfo-rate").innerText = e.target.value;
+        if (lfoNode) lfoNode.frequency.value = e.target.value;
+      });
+
+      // --- MODULE 4: MIXER ---
+      let mixOscs = [];
+      let mixGains = [];
+      const btnMix = document.getElementById("btn-mix");
+
+      btnMix.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (mixOscs.length > 0) {
+          mixOscs.forEach((o) => o.stop());
+          mixOscs = [];
+          mixGains = [];
+          btnMix.innerText = "Start Chord";
+        } else {
+          const freqs = [261.63, 329.63, 392.0];
+          const types = ["sawtooth", "square", "triangle"];
+          const master = ctx.createGain();
+          master.gain.value = 0.5;
+
+          for (let i = 0; i < 3; i++) {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.frequency.value = freqs[i];
+            osc.type = types[i];
+            gain.gain.value = document.getElementById(`in-mix-${i + 1}`).value;
+
+            osc.connect(gain);
+            gain.connect(master);
+            osc.start();
+
+            mixOscs.push(osc);
+            mixGains.push(gain);
+          }
+
+          const analyser = createScope("scope-mix", master);
+          analyser.connect(ctx.destination);
+
+          btnMix.innerText = "Stop Chord";
+        }
+      });
+
+      [1, 2, 3].forEach((i) => {
+        document.getElementById(`in-mix-${i}`).addEventListener("input", (e) => {
+          if (mixGains[i - 1]) mixGains[i - 1].gain.value = e.target.value;
+        });
+      });
+
+      // --- MODULE 5: FM & SLEW ---
+      let fmCar, fmMod, fmGain, fmInterval;
+      const btnFm = document.getElementById("btn-fm");
+
+      btnFm.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (fmCar) {
+          fmCar.stop();
+          fmMod.stop();
+          clearInterval(fmInterval);
+          fmCar = null;
+          btnFm.innerText = "Start FM Sequence";
+        } else {
+          fmCar = ctx.createOscillator();
+          fmMod = ctx.createOscillator();
+          fmGain = ctx.createGain();
+          const master = ctx.createGain();
+
+          fmCar.type = "sine";
+          fmMod.type = "sine";
+
+          const ratio = parseFloat(document.getElementById("in-fm-ratio").value);
+          const amt = parseFloat(document.getElementById("in-fm-amt").value);
+
+          fmCar.frequency.value = 220;
+          fmMod.frequency.value = 220 * ratio;
+          fmGain.gain.value = amt;
+          master.gain.value = 0.3;
+
+          fmMod.connect(fmGain);
+          fmGain.connect(fmCar.frequency);
+          fmCar.connect(master);
+
+          const analyser = createScope("scope-fm", master);
+          analyser.connect(ctx.destination);
+
+          fmCar.start();
+          fmMod.start();
+
+          const notes = [220, 330, 440, 550, 660];
+          fmInterval = setInterval(() => {
+            const note = notes[Math.floor(Math.random() * notes.length)];
+            const slew = parseFloat(document.getElementById("in-slew").value);
+            const now = ctx.currentTime;
+
+            fmCar.frequency.linearRampToValueAtTime(note, now + slew);
+            const r = parseFloat(document.getElementById("in-fm-ratio").value);
+            fmMod.frequency.linearRampToValueAtTime(note * r, now + slew);
+          }, 600);
+
+          btnFm.innerText = "Stop FM Sequence";
+        }
+      });
+
+      document.getElementById("in-fm-amt").addEventListener("input", (e) => {
+        document.getElementById("val-fm-amt").innerText = e.target.value;
+        if (fmGain) fmGain.gain.value = e.target.value;
+      });
+      document.getElementById("in-fm-ratio").addEventListener("input", (e) => {
+        document.getElementById("val-fm-ratio").innerText = e.target.value;
+      });
+      document.getElementById("in-slew").addEventListener("input", (e) => {
+        document.getElementById("val-slew").innerText = e.target.value;
+      });
+
+      // --- MODULE 6: WEST COAST ---
+      let foldOsc, foldShaper;
+      const btnFold = document.getElementById("btn-fold");
+
+      function makeDistortionCurve(amount) {
+        const n_samples = 44100;
+        const curve = new Float32Array(n_samples);
+        for (let i = 0; i < n_samples; ++i) {
+          let x = (i * 2) / n_samples - 1;
+          curve[i] = Math.sin(x * Math.PI * amount);
+        }
+        return curve;
+      }
+
+      btnFold.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (foldOsc) {
+          foldOsc.stop();
+          foldOsc = null;
+          btnFold.innerText = "Start Sine";
+        } else {
+          foldOsc = ctx.createOscillator();
+          foldShaper = ctx.createWaveShaper();
+          const master = ctx.createGain();
+
+          foldOsc.type = "sine";
+          foldOsc.frequency.value = 110;
+
+          foldShaper.curve = makeDistortionCurve(document.getElementById("in-fold").value);
+          foldShaper.oversample = "4x";
+          master.gain.value = 0.3;
+
+          foldOsc.connect(foldShaper);
+          foldShaper.connect(master);
+
+          const analyser = createScope("scope-fold", master);
+          analyser.connect(ctx.destination);
+
+          foldOsc.start();
+          btnFold.innerText = "Stop Sine";
+        }
+      });
+
+      document.getElementById("in-fold").addEventListener("input", (e) => {
+        document.getElementById("val-fold").innerText = e.target.value;
+        if (foldShaper) foldShaper.curve = makeDistortionCurve(e.target.value);
+      });
+    </script>
+  </body>
+</html>
