@@ -1,0 +1,7 @@
+/* Browser defaults reset - raw, unstyled aesthetic */
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; padding: 20px; font-family: sans-serif; font-size: 14px; }
+h1, h2, h3 { margin-top: 0; }
+button { font-size: 1em; padding: 5px 10px; cursor: pointer; }
+canvas { display: block; }
+input[type="range"] { margin: 0; }
