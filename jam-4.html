@@ -9,12 +9,27 @@
     <style>
       body { max-width: 960px; margin: 0 auto; padding: 10px; padding-bottom: 40px; }
       .top-bar { position: sticky; top: 0; background: #f5f5f5; border: 1px solid #ccc; padding: 10px; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-      .keyboard { display: flex; position: relative; height: 120px; margin-top: 10px; user-select: none; }
-      .key { flex: 1; border: 1px solid #333; background: #fff; cursor: pointer; position: relative; z-index: 1; }
-      .key.black { background: #333; color: #fff; width: 60%; margin: 0 -3%; height: 65%; z-index: 2; flex: 0 0 auto; }
+      .keyboard { position: relative; height: 120px; margin-top: 10px; user-select: none; overflow: hidden; }
+      .key { position: absolute; top: 0; bottom: 0; border: 1px solid #333; background: #fff; cursor: pointer; z-index: 1; border-radius: 0 0 4px 4px; }
+      .key.black { background: #333; color: #fff; height: 65%; z-index: 2; border-radius: 0 0 3px 3px; }
       .key.active { background: #07a; }
       .key.black.active { background: #059; }
       .key-label { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; pointer-events: none; }
+      .kb-hint { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 9px; pointer-events: none; color: #999; }
+      .key.black .kb-hint { color: #aaa; bottom: auto; top: 42px; }
+      /* Sequencer */
+      .seq-section { margin-top: 10px; border: 1px solid #ccc; padding: 8px; background: #f9f9f9; }
+      .seq-section h3 { margin: 0 0 6px 0; font-size: 13px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+      .seq-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+      .seq-controls button { padding: 4px 12px; font-size: 13px; cursor: pointer; }
+      .seq-controls label { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: bold; }
+      .seq-controls input[type="range"] { width: 80px; }
+      .seq-controls .val { font-family: monospace; min-width: 35px; text-align: right; }
+      .seq-grid-wrap { overflow-x: auto; }
+      .seq-grid { display: flex; gap: 2px; margin-bottom: 3px; min-width: fit-content; }
+      .seq-cell { width: 36px; min-width: 36px; height: 22px; background: #ddd; border: 1px solid #aaa; cursor: pointer; position: relative; font-size: 8px; text-align: center; line-height: 22px; user-select: none; }
+      .seq-cell.on { background: #07a; color: #fff; }
+      .seq-cell.playing { box-shadow: inset 0 0 0 2px #f80; }
     </style>
   </head>
   <body>
@@ -26,22 +41,8 @@
       </span>
     </div>
 
-    <!-- ON-SCREEN KEYBOARD -->
-    <div class="keyboard" id="keyboard">
-      <div class="key" data-note="C3"><span class="key-label">C3</span></div>
-      <div class="key black" data-note="C#3"><span class="key-label">C#</span></div>
-      <div class="key" data-note="D3"><span class="key-label">D3</span></div>
-      <div class="key black" data-note="D#3"><span class="key-label">D#</span></div>
-      <div class="key" data-note="E3"><span class="key-label">E3</span></div>
-      <div class="key" data-note="F3"><span class="key-label">F3</span></div>
-      <div class="key black" data-note="F#3"><span class="key-label">F#</span></div>
-      <div class="key" data-note="G3"><span class="key-label">G3</span></div>
-      <div class="key black" data-note="G#3"><span class="key-label">G#</span></div>
-      <div class="key" data-note="A3"><span class="key-label">A3</span></div>
-      <div class="key black" data-note="A#3"><span class="key-label">A#</span></div>
-      <div class="key" data-note="B3"><span class="key-label">B3</span></div>
-      <div class="key" data-note="C4"><span class="key-label">C4</span></div>
-    </div>
+    <!-- ON-SCREEN KEYBOARD (absolute positioned for proper piano layout) -->
+    <div class="keyboard" id="keyboard"></div>
 
     <!-- STICKY ARPEGGIATOR BAR -->
     <div class="top-bar">
@@ -60,6 +61,28 @@
           </select>
         </label>
       </div>
+    </div>
+
+    <!-- STEP SEQUENCER -->
+    <div class="seq-section" id="seq-section">
+      <h3>Step Sequencer</h3>
+      <div class="seq-controls">
+        <button id="btn-seq-play">▶ Play</button>
+        <button id="btn-seq-stop">■ Stop</button>
+        <button id="btn-seq-clear">Clear</button>
+        <label title="Sequencer tempo in BPM.">BPM
+          <input type="range" id="in-seq-bpm" min="60" max="240" step="1" value="120" />
+          <span class="val" id="val-seq-bpm">120</span>
+        </label>
+        <label title="Number of steps in the sequence.">Steps
+          <select id="sel-seq-steps" style="font-size: 12px; padding: 2px;">
+            <option value="8">8</option>
+            <option value="16" selected>16</option>
+            <option value="32">32</option>
+          </select>
+        </label>
+      </div>
+      <div class="seq-grid-wrap" id="seq-grid-wrap"></div>
     </div>
 
     <!-- SCOPES -->
@@ -205,6 +228,61 @@
         "G#3": 207.65, "A3": 220.00, "A#3": 233.08, "B3": 246.94,
         "C4": 261.63
       };
+
+      const NOTE_NAMES = Object.keys(NOTE_FREQS);
+
+      // ========== BUILD PIANO KEYBOARD (responsive, absolute positioning) ==========
+      const KEY_MAP = {
+        "a": "C3", "w": "C#3", "s": "D3", "e": "D#3", "d": "E3",
+        "f": "F3", "t": "F#3", "g": "G3", "y": "G#3", "h": "A3",
+        "u": "A#3", "j": "B3", "k": "C4"
+      };
+      const KEY_MAP_DISPLAY = {};
+      for (const [k, v] of Object.entries(KEY_MAP)) KEY_MAP_DISPLAY[v] = k.toUpperCase();
+
+      function buildKeyboard() {
+        const kb = document.getElementById("keyboard");
+        kb.innerHTML = "";
+
+        // White keys: C D E F G A B C (8 keys)
+        const whiteNotes = NOTE_NAMES.filter(n => !n.includes("#"));
+        const totalWhite = whiteNotes.length; // 8
+
+        // Black key positions relative to their preceding white key
+        // In a C-major octave: C#(after C), D#(after D), F#(after F), G#(after G), A#(after A)
+        const blackNotes = NOTE_NAMES.filter(n => n.includes("#"));
+        const blackAfterWhite = { "C#3": 0, "D#3": 1, "F#3": 3, "G#3": 4, "A#3": 5 };
+
+        const whiteWidthPct = 100 / totalWhite;
+        const blackWidthPct = whiteWidthPct * 0.6;
+
+        // Create white keys
+        whiteNotes.forEach((note, i) => {
+          const el = document.createElement("div");
+          el.className = "key";
+          el.dataset.note = note;
+          el.style.left = (i * whiteWidthPct) + "%";
+          el.style.width = whiteWidthPct + "%";
+          el.innerHTML = '<span class="key-label">' + note + '</span>'
+            + (KEY_MAP_DISPLAY[note] ? '<span class="kb-hint">' + KEY_MAP_DISPLAY[note] + '</span>' : '');
+          kb.appendChild(el);
+        });
+
+        // Create black keys
+        blackNotes.forEach(note => {
+          const whiteIdx = blackAfterWhite[note];
+          if (whiteIdx === undefined) return;
+          const el = document.createElement("div");
+          el.className = "key black";
+          el.dataset.note = note;
+          el.style.left = ((whiteIdx + 1) * whiteWidthPct - blackWidthPct / 2) + "%";
+          el.style.width = blackWidthPct + "%";
+          el.innerHTML = '<span class="key-label">' + note.replace("3", "") + '</span>'
+            + (KEY_MAP_DISPLAY[note] ? '<span class="kb-hint">' + KEY_MAP_DISPLAY[note] + '</span>' : '');
+          kb.appendChild(el);
+        });
+      }
+      buildKeyboard();
 
       // ========== POLYPHONIC VOICE POOL ==========
       const NUM_VOICES = 4;
@@ -377,7 +455,8 @@
 
       // ========== KEYBOARD INTERACTION ==========
       const heldNotes = new Set();
-      const keyElements = document.querySelectorAll(".key");
+
+      function getKeyElements() { return document.querySelectorAll(".key"); }
 
       function noteOn(note) {
         if (heldNotes.has(note)) return;
@@ -398,47 +477,76 @@
       }
 
       function updateKeyHighlights() {
-        keyElements.forEach(el => {
+        getKeyElements().forEach(el => {
           const n = el.dataset.note;
           if (heldNotes.has(n)) el.classList.add("active");
           else el.classList.remove("active");
         });
       }
 
-      // Mouse events
-      keyElements.forEach(el => {
-        el.addEventListener("mousedown", (e) => {
-          e.preventDefault();
-          noteOn(el.dataset.note);
-        });
-        el.addEventListener("mouseup", (e) => {
-          e.preventDefault();
-          noteOff(el.dataset.note);
-        });
-        el.addEventListener("mouseleave", (e) => {
-          if (e.buttons > 0) noteOff(el.dataset.note);
-        });
-        el.addEventListener("mouseenter", (e) => {
-          if (e.buttons > 0) noteOn(el.dataset.note);
-        });
+      // Mouse events (use event delegation on keyboard container)
+      const kbEl = document.getElementById("keyboard");
+      kbEl.addEventListener("mousedown", (e) => {
+        const el = e.target.closest(".key");
+        if (el) { e.preventDefault(); noteOn(el.dataset.note); }
+      });
+      document.addEventListener("mouseup", () => {
+        // Release all mouse-held notes when mouse is released anywhere
+        for (const note of [...heldNotes]) {
+          if (!pcKeysDown.has(Object.entries(KEY_MAP).find(([k, v]) => v === note)?.[0])) {
+            noteOff(note);
+          }
+        }
+      });
+      kbEl.addEventListener("mouseover", (e) => {
+        if (e.buttons > 0) {
+          const el = e.target.closest(".key");
+          if (el) noteOn(el.dataset.note);
+        }
+      });
+      kbEl.addEventListener("mouseout", (e) => {
+        if (e.buttons > 0) {
+          const el = e.target.closest(".key");
+          if (el) noteOff(el.dataset.note);
+        }
       });
 
       // Touch events
-      document.getElementById("keyboard").addEventListener("touchstart", (e) => {
+      kbEl.addEventListener("touchstart", (e) => {
         e.preventDefault();
         for (const t of e.changedTouches) {
           const el = document.elementFromPoint(t.clientX, t.clientY);
-          if (el && el.dataset.note) noteOn(el.dataset.note);
+          if (el && el.closest && el.closest(".key")) noteOn(el.closest(".key").dataset.note);
         }
       }, { passive: false });
 
-      document.getElementById("keyboard").addEventListener("touchend", (e) => {
+      kbEl.addEventListener("touchend", (e) => {
         e.preventDefault();
         for (const t of e.changedTouches) {
           const el = document.elementFromPoint(t.clientX, t.clientY);
-          if (el && el.dataset.note) noteOff(el.dataset.note);
+          if (el && el.closest && el.closest(".key")) noteOff(el.closest(".key").dataset.note);
         }
       }, { passive: false });
+
+      // ========== PC KEYBOARD SUPPORT ==========
+      const pcKeysDown = new Set();
+      document.addEventListener("keydown", (e) => {
+        if (e.repeat) return;
+        const note = KEY_MAP[e.key.toLowerCase()];
+        if (note) {
+          e.preventDefault();
+          pcKeysDown.add(e.key.toLowerCase());
+          noteOn(note);
+        }
+      });
+      document.addEventListener("keyup", (e) => {
+        const note = KEY_MAP[e.key.toLowerCase()];
+        if (note) {
+          e.preventDefault();
+          pcKeysDown.delete(e.key.toLowerCase());
+          noteOff(note);
+        }
+      });
 
       // ========== ARPEGGIATOR ==========
       let arpEnabled = false;
@@ -570,6 +678,130 @@
         if (!arpEnabled || !arpTimerId) return;
         startArp();
       }
+
+      // ========== STEP SEQUENCER ==========
+      let seqSteps = 16;
+      let seqData = []; // seqData[step] = set of note names
+      let seqPlaying = false;
+      let seqTimerId = null;
+      let seqCurrentStep = -1;
+
+      function initSeqData(steps) {
+        seqData = [];
+        for (let i = 0; i < steps; i++) seqData.push(new Set());
+      }
+      initSeqData(seqSteps);
+
+      function buildSeqGrid() {
+        const wrap = document.getElementById("seq-grid-wrap");
+        wrap.innerHTML = "";
+        // One row per note (bottom = low, top = high)
+        for (let r = NOTE_NAMES.length - 1; r >= 0; r--) {
+          const note = NOTE_NAMES[r];
+          const row = document.createElement("div");
+          row.className = "seq-grid";
+          for (let s = 0; s < seqSteps; s++) {
+            const cell = document.createElement("div");
+            cell.className = "seq-cell" + (seqData[s].has(note) ? " on" : "");
+            cell.dataset.step = s;
+            cell.dataset.note = note;
+            cell.textContent = s === 0 ? note.replace("3", "").replace("4", "") : "";
+            cell.addEventListener("mousedown", () => {
+              if (seqData[s].has(note)) {
+                seqData[s].delete(note);
+                cell.classList.remove("on");
+              } else {
+                seqData[s].add(note);
+                cell.classList.add("on");
+              }
+            });
+            row.appendChild(cell);
+          }
+          wrap.appendChild(row);
+        }
+      }
+      buildSeqGrid();
+
+      function updateSeqHighlight() {
+        document.querySelectorAll(".seq-cell.playing").forEach(el => el.classList.remove("playing"));
+        if (seqCurrentStep >= 0) {
+          document.querySelectorAll('.seq-cell[data-step="' + seqCurrentStep + '"]').forEach(el => el.classList.add("playing"));
+        }
+      }
+
+      let seqPrevNotes = new Set();
+      function seqTick() {
+        seqCurrentStep = (seqCurrentStep + 1) % seqSteps;
+        updateSeqHighlight();
+
+        // Release notes from previous step that are not in current step
+        const currentNotes = seqData[seqCurrentStep];
+        for (const note of seqPrevNotes) {
+          if (!currentNotes.has(note)) releaseVoice(note);
+        }
+        // Trigger notes in current step
+        for (const note of currentNotes) {
+          if (!seqPrevNotes.has(note)) {
+            triggerVoice(note);
+          }
+        }
+        seqPrevNotes = new Set(currentNotes);
+      }
+
+      function startSeq() {
+        if (!isReady) return;
+        stopSeq();
+        seqPlaying = true;
+        seqCurrentStep = -1;
+        seqPrevNotes = new Set();
+        const bpm = gv("in-seq-bpm");
+        const intervalMs = 60000 / bpm / 4; // 16th notes
+        seqTick();
+        seqTimerId = setInterval(seqTick, intervalMs);
+      }
+
+      function stopSeq() {
+        seqPlaying = false;
+        if (seqTimerId) {
+          clearInterval(seqTimerId);
+          seqTimerId = null;
+        }
+        // Release all seq notes
+        for (const note of seqPrevNotes) releaseVoice(note);
+        seqPrevNotes = new Set();
+        seqCurrentStep = -1;
+        updateSeqHighlight();
+      }
+
+      document.getElementById("btn-seq-play").addEventListener("click", () => {
+        if (!isReady) return alert("Start Audio first");
+        startSeq();
+      });
+      document.getElementById("btn-seq-stop").addEventListener("click", stopSeq);
+      document.getElementById("btn-seq-clear").addEventListener("click", () => {
+        stopSeq();
+        initSeqData(seqSteps);
+        buildSeqGrid();
+      });
+
+      document.getElementById("sel-seq-steps").addEventListener("change", (e) => {
+        const newSteps = parseInt(e.target.value);
+        const wasPlaying = seqPlaying;
+        stopSeq();
+        // Preserve existing data
+        const oldData = seqData;
+        seqSteps = newSteps;
+        initSeqData(seqSteps);
+        for (let s = 0; s < Math.min(oldData.length, seqSteps); s++) {
+          seqData[s] = oldData[s];
+        }
+        buildSeqGrid();
+        if (wasPlaying) startSeq();
+      });
+
+      bind("in-seq-bpm", "val-seq-bpm", () => {
+        if (seqPlaying) startSeq(); // restart with new tempo
+      });
 
       // ========== SCOPE ==========
       function syncCanvasSize(canvas) {
