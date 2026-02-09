@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phase 2 Jam: The Generative Techno System</title>
+    <link rel="stylesheet" href="shared/elements.css" />
+    <link rel="stylesheet" href="shared/synth-ui.css" />
+    <style>
+      body { max-width: 960px; margin: 0 auto; padding: 10px; padding-bottom: 40px; }
+      .top-bar { position: sticky; top: 0; background: #f5f5f5; border: 1px solid #ccc; padding: 10px; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+  </head>
+  <body>
+    <div class="init-bar">
+      <strong>🥁 Generative Techno</strong>
+      <span>
+        <button id="init-audio">Start Audio</button>
+        <span id="audio-status" style="color: red; font-size: 12px">Stopped</span>
+      </span>
+    </div>
+
+    <!-- STICKY TRANSPORT -->
+    <div class="top-bar">
+      <div class="transport">
+        <button id="btn-play">▶ Play</button>
+        <button id="btn-stop">■ Stop</button>
+        <button id="btn-mute-kick">🔊 Kick</button>
+        <button id="btn-mute-hats">🔊 Hats</button>
+        <button id="btn-mute-bass">🔊 Bass</button>
+        <label
+          >BPM
+          <input type="range" id="in-tempo" min="60" max="200" value="125" />
+          <span class="val" id="val-tempo">125</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- SCOPES -->
+    <div class="scope-row">
+      <div class="scope-wrap">
+        <span class="scope-label">WAVEFORM</span>
+        <canvas id="scope-wave"></canvas>
+      </div>
+      <div class="scope-wrap">
+        <span class="scope-label">FREQUENCY</span>
+        <canvas id="scope-freq"></canvas>
+      </div>
+    </div>
+
+    <!-- PANELS -->
+    <div class="panels">
+      <!-- KICK -->
+      <div class="panel" id="panel-kick">
+        <h3>Kick</h3>
+        <div class="knob">
+          <label title="Kick drum volume.">Volume <span class="val" id="val-kick-vol">0.80</span></label>
+          <input type="range" id="in-kick-vol" min="0" max="1" step="0.01" value="0.80" />
+        </div>
+        <div class="knob">
+          <label title="Starting pitch of the kick. Higher = clickier attack.">Pitch <span class="val" id="val-kick-pitch">150</span></label>
+          <input type="range" id="in-kick-pitch" min="60" max="400" value="150" />
+        </div>
+        <div class="knob">
+          <label title="How fast the kick's pitch sweeps down. Short = tight punch. Long = boomy.">Decay <span class="val" id="val-kick-decay">0.15</span></label>
+          <input type="range" id="in-kick-decay" min="0.05" max="0.5" step="0.01" value="0.15" />
+        </div>
+      </div>
+
+      <!-- HI-HATS -->
+      <div class="panel" id="panel-hats">
+        <h3>Hi-Hats</h3>
+        <div class="knob">
+          <label title="Bernoulli gate probability. 0 = silence. 1 = every step fires.">Probability <span class="val" id="val-hat-prob">0.50</span></label>
+          <input type="range" id="in-hat-prob" min="0" max="1" step="0.01" value="0.50" />
+        </div>
+        <div class="knob">
+          <label title="How long the hi-hat rings. Short = closed hat. Long = open hat.">Decay <span class="val" id="val-hat-decay">0.06</span></label>
+          <input type="range" id="in-hat-decay" min="0.01" max="0.3" step="0.01" value="0.06" />
+        </div>
+        <div class="knob">
+          <label title="Hi-hat volume.">Volume <span class="val" id="val-hat-vol">0.40</span></label>
+          <input type="range" id="in-hat-vol" min="0" max="1" step="0.01" value="0.40" />
+        </div>
+        <div class="knob">
+          <label title="Steps per beat. 2 = 8ths. 4 = 16ths. Higher = faster hat pattern.">Density <span class="val" id="val-hat-density">4</span></label>
+          <input type="range" id="in-hat-density" min="1" max="8" step="1" value="4" />
+        </div>
+      </div>
+
+      <!-- BASSLINE -->
+      <div class="panel" id="panel-bass">
+        <h3>Bassline</h3>
+        <div class="knob">
+          <label title="Lowpass filter cutoff. Low = deep rumble. High = bright growl.">Cutoff <span class="val" id="val-bass-cut">400</span></label>
+          <input type="range" id="in-bass-cut" min="50" max="4000" value="400" />
+        </div>
+        <div class="knob">
+          <label title="Filter resonance. Boosts at the cutoff frequency for squelchy bass.">Resonance <span class="val" id="val-bass-res">6</span></label>
+          <input type="range" id="in-bass-res" min="0" max="25" value="6" />
+        </div>
+        <div class="knob">
+          <label title="How much the note envelope sweeps the filter open. High = plucky.">Env Depth <span class="val" id="val-bass-env">1500</span></label>
+          <input type="range" id="in-bass-env" min="0" max="5000" value="1500" />
+        </div>
+        <div class="knob">
+          <label title="Lock the Turing machine. When locked, the sequence repeats perfectly. Unlocked = mutations."
+            >Pattern
+            <span class="val" id="val-bass-lock">MUTATE</span>
+          </label>
+          <button id="btn-lock" style="width:100%; font-size:12px; padding:3px;">🔓 Unlocked</button>
+        </div>
+      </div>
+
+      <!-- DYNAMICS -->
+      <div class="panel" id="panel-dyn">
+        <h3>Dynamics</h3>
+        <div class="knob">
+          <label title="Sidechain depth. The kick ducks the bassline volume. Higher = more pumping.">SC Depth <span class="val" id="val-sc-depth">0.70</span></label>
+          <input type="range" id="in-sc-depth" min="0" max="1" step="0.01" value="0.70" />
+        </div>
+        <div class="knob">
+          <label title="Master output volume.">Master <span class="val" id="val-master">0.70</span></label>
+          <input type="range" id="in-master" min="0" max="1" step="0.01" value="0.70" />
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ========== AUDIO ENGINE ==========
+      let ctx;
+      let isReady = false;
+
+      document.getElementById("init-audio").addEventListener("click", async () => {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") await ctx.resume();
+        isReady = true;
+        document.getElementById("audio-status").innerText = "Running";
+        document.getElementById("audio-status").style.color = "green";
+        document.getElementById("init-audio").disabled = true;
+        buildEngine();
+      });
+
+      // ========== HELPERS ==========
+      function gv(id) { return parseFloat(document.getElementById(id).value); }
+
+      function bind(sId, dId, cb) {
+        const s = document.getElementById(sId);
+        const d = document.getElementById(dId);
+        s.addEventListener("input", () => {
+          d.innerText = s.value;
+          if (cb) cb(parseFloat(s.value));
+        });
+      }
+
+      // ========== TURING MACHINE ==========
+      const TURING_LENGTH = 16;
+      let shiftRegister = [];
+      for (let i = 0; i < TURING_LENGTH; i++) shiftRegister.push(Math.random() > 0.5 ? 1 : 0);
+      let turingLocked = false;
+      let turingStep = 0;
+
+      // Minor pentatonic scale: C2, Eb2, F2, G2, Bb2, C3, Eb3, F3
+      const BASS_SCALE = [65.41, 77.78, 87.31, 98.0, 116.54, 130.81, 155.56, 174.61];
+
+      function turingAdvance() {
+        turingStep = (turingStep + 1) % TURING_LENGTH;
+        if (!turingLocked) {
+          // Flip the outgoing bit with some probability
+          if (Math.random() > 0.5) {
+            shiftRegister[turingStep] = shiftRegister[turingStep] ? 0 : 1;
+          }
+        }
+        // Read the current 3 bits to get a scale index (0-7)
+        let val = 0;
+        for (let i = 0; i < 3; i++) {
+          val += shiftRegister[(turingStep + i) % TURING_LENGTH] << i;
+        }
+        return BASS_SCALE[val % BASS_SCALE.length];
+      }
+
+      // ========== MUTE STATE ==========
+      let muteKick = false, muteHats = false, muteBass = false;
+
+      function setupMuteBtn(btnId, getState, setState) {
+        const btn = document.getElementById(btnId);
+        btn.addEventListener("click", () => {
+          const newState = !getState();
+          setState(newState);
+          const label = btnId.replace("btn-mute-", "");
+          const name = label.charAt(0).toUpperCase() + label.slice(1);
+          btn.textContent = (newState ? "🔇 " : "🔊 ") + name;
+        });
+      }
+
+      setupMuteBtn("btn-mute-kick", () => muteKick, (v) => muteKick = v);
+      setupMuteBtn("btn-mute-hats", () => muteHats, (v) => muteHats = v);
+      setupMuteBtn("btn-mute-bass", () => muteBass, (v) => muteBass = v);
+
+      // Lock toggle
+      document.getElementById("btn-lock").addEventListener("click", () => {
+        turingLocked = !turingLocked;
+        document.getElementById("btn-lock").textContent = turingLocked ? "🔒 Locked" : "🔓 Unlocked";
+        document.getElementById("val-bass-lock").textContent = turingLocked ? "LOCKED" : "MUTATE";
+      });
+
+      // ========== AUDIO NODES ==========
+      let analyser, masterGain;
+      let bassOsc, bassFilter, bassVCA;
+      let scGain; // sidechain gain node on the bass
+
+      function buildEngine() {
+        masterGain = ctx.createGain();
+        masterGain.gain.value = gv("in-master");
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+
+        // Bass oscillator (always running, gated by VCA)
+        bassOsc = ctx.createOscillator();
+        bassOsc.type = "sawtooth";
+        bassOsc.frequency.value = 65.41;
+
+        bassFilter = ctx.createBiquadFilter();
+        bassFilter.type = "lowpass";
+        bassFilter.frequency.value = gv("in-bass-cut");
+        bassFilter.Q.value = gv("in-bass-res");
+
+        bassVCA = ctx.createGain();
+        bassVCA.gain.value = 0;
+
+        scGain = ctx.createGain();
+        scGain.gain.value = 1;
+
+        bassOsc.connect(bassFilter);
+        bassFilter.connect(bassVCA);
+        bassVCA.connect(scGain);
+        scGain.connect(masterGain);
+
+        masterGain.connect(analyser).connect(ctx.destination);
+        bassOsc.start();
+
+        drawScope();
+      }
+
+      // ========== TRIGGER FUNCTIONS ==========
+      function triggerKick(time) {
+        if (muteKick) return;
+        const vol = gv("in-kick-vol");
+        const startPitch = gv("in-kick-pitch");
+        const decay = gv("in-kick-decay");
+
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(startPitch, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + decay);
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(vol, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + decay + 0.1);
+
+        osc.connect(gain).connect(masterGain);
+        osc.start(time);
+        osc.stop(time + decay + 0.15);
+
+        // Sidechain: duck the bass
+        applySidechain(time);
+      }
+
+      function applySidechain(time) {
+        if (!scGain) return;
+        const depth = gv("in-sc-depth");
+        const duckLevel = 1 - depth;
+        scGain.gain.cancelScheduledValues(time);
+        scGain.gain.setValueAtTime(duckLevel, time);
+        scGain.gain.linearRampToValueAtTime(1, time + 0.15);
+      }
+
+      function triggerHat(time) {
+        if (muteHats) return;
+        const vol = gv("in-hat-vol");
+        const decay = gv("in-hat-decay");
+
+        // White noise burst
+        const bufferSize = ctx.sampleRate * Math.min(decay + 0.05, 0.35);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const hpf = ctx.createBiquadFilter();
+        hpf.type = "highpass";
+        hpf.frequency.value = 7000;
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(vol, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+
+        noise.connect(hpf).connect(gain).connect(masterGain);
+        noise.start(time);
+        noise.stop(time + decay + 0.05);
+      }
+
+      function triggerBass(time) {
+        if (muteBass) return;
+        const freq = turingAdvance();
+        const cutBase = gv("in-bass-cut");
+        const envDepth = gv("in-bass-env");
+
+        bassOsc.frequency.setValueAtTime(freq, time);
+
+        // Amp envelope
+        bassVCA.gain.cancelScheduledValues(time);
+        bassVCA.gain.setValueAtTime(0.5, time);
+        bassVCA.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+
+        // Filter envelope
+        bassFilter.frequency.cancelScheduledValues(time);
+        bassFilter.frequency.setValueAtTime(cutBase + envDepth, time);
+        bassFilter.frequency.exponentialRampToValueAtTime(Math.max(cutBase, 20), time + 0.15);
+      }
+
+      // ========== SCOPE ==========
+      function syncCanvasSize(canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.round(rect.width * dpr);
+        const h = Math.round(rect.height * dpr);
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+      }
+
+      function drawScope() {
+        if (!analyser) return;
+        const waveCanvas = document.getElementById("scope-wave");
+        const freqCanvas = document.getElementById("scope-freq");
+        const wc = waveCanvas.getContext("2d");
+        const fc = freqCanvas.getContext("2d");
+        const bufLen = analyser.frequencyBinCount;
+        const timeBuf = new Uint8Array(bufLen);
+        const freqBuf = new Uint8Array(bufLen);
+
+        function render() {
+          requestAnimationFrame(render);
+          syncCanvasSize(waveCanvas);
+          syncCanvasSize(freqCanvas);
+
+          analyser.getByteTimeDomainData(timeBuf);
+          const ww = waveCanvas.width, wh = waveCanvas.height;
+          wc.fillStyle = "#fff";
+          wc.fillRect(0, 0, ww, wh);
+          wc.strokeStyle = "#ddd";
+          wc.lineWidth = 1;
+          wc.beginPath();
+          wc.moveTo(0, wh / 2);
+          wc.lineTo(ww, wh / 2);
+          wc.stroke();
+          wc.lineWidth = 1.5;
+          wc.strokeStyle = "#07a";
+          wc.beginPath();
+          const sliceW = ww / bufLen;
+          for (let i = 0; i < bufLen; i++) {
+            const y = (timeBuf[i] / 255) * wh;
+            if (i === 0) wc.moveTo(0, y);
+            else wc.lineTo(i * sliceW, y);
+          }
+          wc.stroke();
+
+          analyser.getByteFrequencyData(freqBuf);
+          const fw = freqCanvas.width, fh = freqCanvas.height;
+          fc.fillStyle = "#fff";
+          fc.fillRect(0, 0, fw, fh);
+          const barCount = Math.min(bufLen, fw);
+          const barW = fw / barCount;
+          for (let i = 0; i < barCount; i++) {
+            const v = freqBuf[i] / 255;
+            const barH = v * fh;
+            fc.fillStyle = `hsl(${200 - v * 160}, 70%, ${50 - v * 20}%)`;
+            fc.fillRect(i * barW, fh - barH, Math.max(barW - 0.5, 1), barH);
+          }
+        }
+        render();
+      }
+
+      // ========== SEQUENCER ENGINE ==========
+      let isPlaying = false, timerID = null;
+      let beatCount = 0, subStep = 0;
+
+      function getStepDuration() {
+        return 60.0 / gv("in-tempo") / 4; // 16th-note subdivision (4 per beat)
+      }
+
+      function scheduleStep() {
+        const stepDur = getStepDuration();
+        const now = ctx.currentTime;
+        const density = Math.round(gv("in-hat-density"));
+        const prob = gv("in-hat-prob");
+
+        // Kick on every beat (every 4 sub-steps = quarter note in 4/4)
+        if (subStep % 4 === 0) {
+          triggerKick(now);
+        }
+
+        // Hi-hats: fire on every N-th sub-step based on density, gated by probability
+        const hatInterval = Math.max(1, Math.round(4 / density));
+        if (subStep % hatInterval === 0) {
+          if (Math.random() < prob) {
+            triggerHat(now);
+          }
+        }
+
+        // Bassline: one note per beat
+        if (subStep % 4 === 0) {
+          triggerBass(now);
+        }
+
+        subStep = (subStep + 1) % 16;
+        beatCount++;
+      }
+
+      document.getElementById("btn-play").addEventListener("click", () => {
+        if (!isReady) return alert("Start Audio first");
+        if (isPlaying) return;
+        isPlaying = true;
+        beatCount = 0;
+        subStep = 0;
+        timerID = setInterval(scheduleStep, getStepDuration() * 1000);
+      });
+
+      document.getElementById("btn-stop").addEventListener("click", () => {
+        isPlaying = false;
+        if (timerID) clearInterval(timerID);
+        timerID = null;
+        if (bassVCA) {
+          bassVCA.gain.cancelScheduledValues(ctx.currentTime);
+          bassVCA.gain.setValueAtTime(0, ctx.currentTime);
+        }
+      });
+
+      // Re-sync interval when BPM changes
+      function resyncTimer() {
+        if (!isPlaying) return;
+        if (timerID) clearInterval(timerID);
+        timerID = setInterval(scheduleStep, getStepDuration() * 1000);
+      }
+
+      // ========== KNOB BINDINGS ==========
+      bind("in-kick-vol", "val-kick-vol");
+      bind("in-kick-pitch", "val-kick-pitch");
+      bind("in-kick-decay", "val-kick-decay");
+      bind("in-hat-prob", "val-hat-prob");
+      bind("in-hat-decay", "val-hat-decay");
+      bind("in-hat-vol", "val-hat-vol");
+      bind("in-hat-density", "val-hat-density");
+      bind("in-bass-cut", "val-bass-cut", (v) => { if (bassFilter) bassFilter.frequency.value = v; });
+      bind("in-bass-res", "val-bass-res", (v) => { if (bassFilter) bassFilter.Q.value = v; });
+      bind("in-bass-env", "val-bass-env");
+      bind("in-sc-depth", "val-sc-depth");
+      bind("in-master", "val-master", (v) => { if (masterGain) masterGain.gain.value = v; });
+      bind("in-tempo", "val-tempo", () => { resyncTimer(); });
+    </script>
+  </body>
+</html>
