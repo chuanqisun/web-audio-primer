@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phase 3 Jam: The Ambient Soundscape Lab</title>
+    <link rel="stylesheet" href="shared/elements.css" />
+    <link rel="stylesheet" href="shared/synth-ui.css" />
+    <style>
+      body { max-width: 960px; margin: 0 auto; padding: 10px; padding-bottom: 40px; }
+      .top-bar { position: sticky; top: 0; background: #f5f5f5; border: 1px solid #ccc; padding: 10px; z-index: 100; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    </style>
+  </head>
+  <body>
+    <div class="init-bar">
+      <strong>🌌 Ambient Soundscape Lab</strong>
+      <span>
+        <button id="init-audio">Start Audio</button>
+        <span id="audio-status" style="color: red; font-size: 12px">Stopped</span>
+      </span>
+    </div>
+
+    <!-- STICKY TRANSPORT -->
+    <div class="top-bar">
+      <div class="transport">
+        <button id="btn-play">▶ Play</button>
+        <button id="btn-stop">■ Stop</button>
+        <button id="btn-mute-grains">🔊 Grains</button>
+        <button id="btn-mute-strings">🔊 Strings</button>
+        <button id="btn-mute-drone">🔊 Drone</button>
+        <button id="btn-preset-deep" title="Deep ocean atmosphere: slow grains, low strings, dark drone.">🎲 Deep</button>
+        <button id="btn-preset-bright" title="Bright crystalline texture: fast grains, high strings, shimmering drone.">🎲 Bright</button>
+        <button id="btn-preset-dark" title="Dark ritual drone: frozen grains, slow plucks, heavy feedback.">🎲 Dark</button>
+      </div>
+    </div>
+
+    <!-- SCOPES -->
+    <div class="scope-row">
+      <div class="scope-wrap">
+        <span class="scope-label">WAVEFORM</span>
+        <canvas id="scope-wave"></canvas>
+      </div>
+      <div class="scope-wrap">
+        <span class="scope-label">FREQUENCY</span>
+        <canvas id="scope-freq"></canvas>
+      </div>
+    </div>
+
+    <!-- PANELS -->
+    <div class="panels">
+      <!-- GRAINS -->
+      <div class="panel" id="panel-grains">
+        <h3>Grains</h3>
+        <div class="knob">
+          <label title="How many grains per second. Low = sparse clouds. High = dense swarm.">Density <span class="val" id="val-grain-density">8</span></label>
+          <input type="range" id="in-grain-density" min="1" max="40" step="1" value="8" />
+        </div>
+        <div class="knob">
+          <label title="Duration of each grain in milliseconds. Short = glitchy. Long = smooth pads.">Size <span class="val" id="val-grain-size">50</span></label>
+          <input type="range" id="in-grain-size" min="20" max="80" step="1" value="50" />
+        </div>
+        <div class="knob">
+          <label title="Read position in the source buffer. Sweeps through the texture.">Position <span class="val" id="val-grain-pos">0.30</span></label>
+          <input type="range" id="in-grain-pos" min="0" max="1" step="0.01" value="0.30" />
+        </div>
+        <div class="knob">
+          <label title="Playback speed of each grain. 0.5 = octave down. 2 = octave up.">Pitch <span class="val" id="val-grain-pitch">1.00</span></label>
+          <input type="range" id="in-grain-pitch" min="0.25" max="2.0" step="0.01" value="1.00" />
+        </div>
+        <div class="knob">
+          <label title="Freeze: locks grain position so it stops drifting. Creates sustained textures.">Freeze
+            <span class="val" id="val-grain-freeze">OFF</span>
+          </label>
+          <button id="btn-freeze" style="width:100%; font-size:12px; padding:3px;">❄️ Off</button>
+        </div>
+      </div>
+
+      <!-- STRINGS -->
+      <div class="panel" id="panel-strings">
+        <h3>Strings</h3>
+        <div class="knob">
+          <label title="Lowpass filter on the delay feedback. Low = muted/nylon. High = bright/metallic.">Damping <span class="val" id="val-string-damp">2000</span></label>
+          <input type="range" id="in-string-damp" min="200" max="8000" value="2000" />
+        </div>
+        <div class="knob">
+          <label title="Octave register of the string voice. Lower = bass. Higher = chime.">Octave <span class="val" id="val-string-octave">3</span></label>
+          <input type="range" id="in-string-octave" min="2" max="5" step="1" value="3" />
+        </div>
+        <div class="knob">
+          <label title="How often a new note is plucked (seconds between plucks).">Pluck Rate <span class="val" id="val-string-rate">2.0</span></label>
+          <input type="range" id="in-string-rate" min="0.5" max="6.0" step="0.1" value="2.0" />
+        </div>
+        <div class="knob">
+          <label title="Volume of the string layer.">Volume <span class="val" id="val-string-vol">0.50</span></label>
+          <input type="range" id="in-string-vol" min="0" max="1" step="0.01" value="0.50" />
+        </div>
+      </div>
+
+      <!-- FEEDBACK DRONE -->
+      <div class="panel" id="panel-drone">
+        <h3>Feedback Drone</h3>
+        <div class="knob">
+          <label title="Center frequency of the bandpass filter. Determines the drone pitch.">Frequency <span class="val" id="val-drone-freq">180</span></label>
+          <input type="range" id="in-drone-freq" min="40" max="800" value="180" />
+        </div>
+        <div class="knob">
+          <label title="Feedback amount. Higher = louder, more sustained self-oscillation. Careful above 0.95!">Feedback <span class="val" id="val-drone-fb">0.85</span></label>
+          <input type="range" id="in-drone-fb" min="0" max="0.98" step="0.01" value="0.85" />
+        </div>
+        <div class="knob">
+          <label title="Volume of the feedback drone layer.">Volume <span class="val" id="val-drone-vol">0.30</span></label>
+          <input type="range" id="in-drone-vol" min="0" max="1" step="0.01" value="0.30" />
+        </div>
+      </div>
+
+      <!-- REVERB / MASTER -->
+      <div class="panel" id="panel-master">
+        <h3>Reverb / Master</h3>
+        <div class="knob">
+          <label title="Dry/Wet balance of the convolution reverb. 0 = dry. 1 = fully wet.">Reverb Mix <span class="val" id="val-rev-mix">0.60</span></label>
+          <input type="range" id="in-rev-mix" min="0" max="1" step="0.01" value="0.60" />
+        </div>
+        <div class="knob">
+          <label title="Reverb tail length. Higher = longer decay, bigger space.">Reverb Size <span class="val" id="val-rev-size">4.0</span></label>
+          <input type="range" id="in-rev-size" min="1" max="8" step="0.1" value="4.0" />
+        </div>
+        <div class="knob">
+          <label title="Master output volume.">Master <span class="val" id="val-master">0.70</span></label>
+          <input type="range" id="in-master" min="0" max="1" step="0.01" value="0.70" />
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ========== AUDIO ENGINE ==========
+      let ctx;
+      let isReady = false;
+
+      document.getElementById("init-audio").addEventListener("click", async () => {
+        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === "suspended") await ctx.resume();
+        isReady = true;
+        document.getElementById("audio-status").innerText = "Running";
+        document.getElementById("audio-status").style.color = "green";
+        document.getElementById("init-audio").disabled = true;
+        buildEngine();
+      });
+
+      // ========== HELPERS ==========
+      function gv(id) { return parseFloat(document.getElementById(id).value); }
+
+      function bind(sId, dId, cb) {
+        const s = document.getElementById(sId);
+        const d = document.getElementById(dId);
+        s.addEventListener("input", () => {
+          d.innerText = s.value;
+          if (cb) cb(parseFloat(s.value));
+        });
+      }
+
+      function setSlider(id, value) {
+        const el = document.getElementById(id);
+        const min = parseFloat(el.min);
+        const max = parseFloat(el.max);
+        value = Math.max(min, Math.min(max, value));
+        el.value = value;
+        el.dispatchEvent(new Event("input"));
+      }
+
+      function flashPanels() {
+        document.querySelectorAll(".panel").forEach((p) => {
+          p.classList.remove("unflash");
+          p.classList.add("flash");
+          setTimeout(() => {
+            p.classList.remove("flash");
+            p.classList.add("unflash");
+          }, 100);
+        });
+      }
+
+      // ========== MUTE STATE ==========
+      let muteGrains = false, muteStrings = false, muteDrone = false;
+      let grainGain, stringGain, droneGain;
+
+      function setupMuteBtn(btnId, getState, setState, gainRef) {
+        const btn = document.getElementById(btnId);
+        btn.addEventListener("click", () => {
+          const newState = !getState();
+          setState(newState);
+          const label = btnId.replace("btn-mute-", "");
+          const name = label.charAt(0).toUpperCase() + label.slice(1);
+          btn.textContent = (newState ? "🔇 " : "🔊 ") + name;
+          const g = gainRef();
+          if (g) g.gain.setTargetAtTime(newState ? 0 : 1, ctx.currentTime, 0.05);
+        });
+      }
+
+      setupMuteBtn("btn-mute-grains", () => muteGrains, (v) => muteGrains = v, () => grainGain);
+      setupMuteBtn("btn-mute-strings", () => muteStrings, (v) => muteStrings = v, () => stringGain);
+      setupMuteBtn("btn-mute-drone", () => muteDrone, (v) => muteDrone = v, () => droneGain);
+
+      // ========== FREEZE TOGGLE ==========
+      let frozen = false;
+      document.getElementById("btn-freeze").addEventListener("click", () => {
+        frozen = !frozen;
+        document.getElementById("btn-freeze").textContent = frozen ? "❄️ On" : "❄️ Off";
+        document.getElementById("val-grain-freeze").textContent = frozen ? "ON" : "OFF";
+      });
+
+      // ========== REVERB IMPULSE RESPONSE ==========
+      function generateReverb(audioCtx, duration, decay) {
+        const rate = audioCtx.sampleRate;
+        const length = rate * duration;
+        const impulse = audioCtx.createBuffer(2, length, rate);
+        for (let ch = 0; ch < 2; ch++) {
+          const data = impulse.getChannelData(ch);
+          for (let i = 0; i < length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+          }
+        }
+        return impulse;
+      }
+
+      // ========== GRANULAR SOURCE BUFFER ==========
+      function generateGrainBuffer(audioCtx) {
+        const duration = 3;
+        const rate = audioCtx.sampleRate;
+        const length = rate * duration;
+        const buffer = audioCtx.createBuffer(2, length, rate);
+        // Harmonically rich drone: stacked detuned sines with slow modulation
+        const fundamentals = [55, 82.5, 110, 165, 220, 330];
+        for (let ch = 0; ch < 2; ch++) {
+          const data = buffer.getChannelData(ch);
+          for (let i = 0; i < length; i++) {
+            const t = i / rate;
+            let sample = 0;
+            for (let f = 0; f < fundamentals.length; f++) {
+              const freq = fundamentals[f] * (1 + 0.003 * Math.sin(2 * Math.PI * 0.1 * (f + 1) * t));
+              const detune = ch === 0 ? 1.0 : 1.002; // stereo spread
+              sample += Math.sin(2 * Math.PI * freq * detune * t) / fundamentals.length;
+            }
+            // Slow amplitude modulation for movement
+            sample *= 0.7 + 0.3 * Math.sin(2 * Math.PI * 0.25 * t);
+            data[i] = sample;
+          }
+        }
+        return buffer;
+      }
+
+      // ========== AUDIO NODES ==========
+      let analyser, masterGain;
+      let convolver, dryGainNode, wetGainNode;
+      let grainBuffer;
+      let grainIntervalId = null;
+      let droneFilter, droneFeedback, droneExciter;
+      let pluckTimerId = null;
+
+      // Pentatonic scale frequencies (for string plucks)
+      function getPentatonicFreq(octave) {
+        // C minor pentatonic: C, Eb, F, G, Bb
+        const ratios = [1, 1.189, 1.335, 1.498, 1.782];
+        const baseFreq = 65.41 * Math.pow(2, octave - 2); // C2 = 65.41
+        const idx = Math.floor(Math.random() * ratios.length);
+        return baseFreq * ratios[idx];
+      }
+
+      function buildEngine() {
+        // Master chain
+        masterGain = ctx.createGain();
+        masterGain.gain.value = gv("in-master");
+        analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+
+        // Reverb (convolver)
+        convolver = ctx.createConvolver();
+        convolver.buffer = generateReverb(ctx, gv("in-rev-size"), 3.0);
+        dryGainNode = ctx.createGain();
+        dryGainNode.gain.value = 1 - gv("in-rev-mix");
+        wetGainNode = ctx.createGain();
+        wetGainNode.gain.value = gv("in-rev-mix");
+
+        // Reverb routing: reverbBus -> dry + wet(convolver) -> master
+        const reverbBus = ctx.createGain();
+        reverbBus.gain.value = 1;
+        reverbBus.connect(dryGainNode);
+        reverbBus.connect(convolver);
+        convolver.connect(wetGainNode);
+        dryGainNode.connect(masterGain);
+        wetGainNode.connect(masterGain);
+        masterGain.connect(analyser).connect(ctx.destination);
+
+        // Layer gain nodes
+        grainGain = ctx.createGain();
+        grainGain.gain.value = muteGrains ? 0 : 1;
+        grainGain.connect(reverbBus);
+
+        stringGain = ctx.createGain();
+        stringGain.gain.value = muteStrings ? 0 : 1;
+        stringGain.connect(reverbBus);
+
+        droneGain = ctx.createGain();
+        droneGain.gain.value = muteDrone ? 0 : 1;
+        droneGain.connect(reverbBus);
+
+        // Generate granular source buffer
+        grainBuffer = generateGrainBuffer(ctx);
+
+        // Build feedback drone
+        buildDrone(reverbBus);
+
+        drawScope();
+      }
+
+      // ========== GRANULAR CLOUD ==========
+      function scheduleGrain() {
+        if (!ctx || !grainBuffer) return;
+        const size = gv("in-grain-size") / 1000; // ms -> s
+        const pos = gv("in-grain-pos");
+        const pitch = gv("in-grain-pitch");
+        const bufDur = grainBuffer.duration;
+
+        // Randomize position slightly unless frozen
+        const jitter = frozen ? 0 : (Math.random() - 0.5) * 0.05;
+        const offset = Math.max(0, Math.min(bufDur - size, pos * (bufDur - size) + jitter));
+
+        const source = ctx.createBufferSource();
+        source.buffer = grainBuffer;
+        source.playbackRate.value = pitch;
+
+        // Grain envelope to avoid clicks
+        const env = ctx.createGain();
+        const now = ctx.currentTime;
+        const fadeTime = Math.min(size * 0.25, 0.01);
+        env.gain.setValueAtTime(0, now);
+        env.gain.linearRampToValueAtTime(0.6, now + fadeTime);
+        env.gain.setValueAtTime(0.6, now + size - fadeTime);
+        env.gain.linearRampToValueAtTime(0, now + size);
+
+        // Slight stereo panning per grain
+        const panner = ctx.createStereoPanner();
+        panner.pan.value = (Math.random() - 0.5) * 0.8;
+
+        source.connect(env).connect(panner).connect(grainGain);
+        source.start(now, offset, size);
+      }
+
+      function startGrains() {
+        stopGrains();
+        function tick() {
+          scheduleGrain();
+          const density = gv("in-grain-density");
+          const interval = 1000 / density;
+          // Add slight timing jitter for natural feel
+          const jitteredInterval = interval * (0.8 + Math.random() * 0.4);
+          grainIntervalId = setTimeout(tick, jitteredInterval);
+        }
+        tick();
+      }
+
+      function stopGrains() {
+        if (grainIntervalId) {
+          clearTimeout(grainIntervalId);
+          grainIntervalId = null;
+        }
+      }
+
+      // ========== KARPLUS-STRONG STRINGS ==========
+      function pluckString() {
+        if (!ctx || muteStrings) return;
+        const octave = Math.round(gv("in-string-octave"));
+        const damping = gv("in-string-damp");
+        const volume = gv("in-string-vol");
+        const freq = getPentatonicFreq(octave);
+        const delayTime = 1 / freq;
+
+        // Noise burst excitation (~2ms)
+        const burstLen = Math.ceil(ctx.sampleRate * 0.002);
+        const burstBuf = ctx.createBuffer(1, burstLen, ctx.sampleRate);
+        const burstData = burstBuf.getChannelData(0);
+        for (let i = 0; i < burstLen; i++) burstData[i] = Math.random() * 2 - 1;
+
+        const burst = ctx.createBufferSource();
+        burst.buffer = burstBuf;
+
+        // Delay line for pitch
+        const delay = ctx.createDelay(1);
+        delay.delayTime.value = delayTime;
+
+        // Feedback with lowpass for damping
+        const fb = ctx.createGain();
+        fb.gain.value = 0.995;
+        const lpf = ctx.createBiquadFilter();
+        lpf.type = "lowpass";
+        lpf.frequency.value = damping;
+
+        // Output gain
+        const out = ctx.createGain();
+        out.gain.value = volume;
+
+        // Envelope to fade out after a few seconds
+        const now = ctx.currentTime;
+        out.gain.setValueAtTime(volume, now);
+        out.gain.setTargetAtTime(0, now + 2.5, 1.0);
+
+        // Routing: burst -> delay -> lpf -> fb -> delay (loop), delay -> out -> stringGain
+        burst.connect(delay);
+        delay.connect(lpf);
+        lpf.connect(fb);
+        fb.connect(delay);
+        delay.connect(out);
+        out.connect(stringGain);
+
+        burst.start();
+        burst.stop(ctx.currentTime + 0.003);
+
+        // Clean up after sound dies
+        setTimeout(() => {
+          try {
+            burst.disconnect();
+            delay.disconnect();
+            lpf.disconnect();
+            fb.disconnect();
+            out.disconnect();
+          } catch (e) { /* already disconnected */ }
+        }, 6000);
+      }
+
+      function startPlucking() {
+        stopPlucking();
+        function tick() {
+          pluckString();
+          const rate = gv("in-string-rate") * 1000;
+          // Randomize timing for organic feel
+          const jittered = rate * (0.7 + Math.random() * 0.6);
+          pluckTimerId = setTimeout(tick, jittered);
+        }
+        tick();
+      }
+
+      function stopPlucking() {
+        if (pluckTimerId) {
+          clearTimeout(pluckTimerId);
+          pluckTimerId = null;
+        }
+      }
+
+      // ========== FEEDBACK DRONE ==========
+      let droneNoiseSource = null;
+      let droneNodes = {};
+
+      function buildDrone() {
+        // Bandpass filter in a feedback loop
+        droneNodes.filter = ctx.createBiquadFilter();
+        droneNodes.filter.type = "bandpass";
+        droneNodes.filter.frequency.value = gv("in-drone-freq");
+        droneNodes.filter.Q.value = 30;
+
+        droneNodes.fb = ctx.createGain();
+        droneNodes.fb.gain.value = gv("in-drone-fb");
+
+        droneNodes.vol = ctx.createGain();
+        droneNodes.vol.gain.value = gv("in-drone-vol");
+
+        // Feedback loop: filter -> fb -> filter
+        droneNodes.filter.connect(droneNodes.fb);
+        droneNodes.fb.connect(droneNodes.filter);
+
+        // Output
+        droneNodes.filter.connect(droneNodes.vol);
+        droneNodes.vol.connect(droneGain);
+      }
+
+      function exciteDrone() {
+        if (!ctx || !droneNodes.filter) return;
+        // Short noise burst to excite the feedback loop
+        const len = Math.ceil(ctx.sampleRate * 0.05);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+
+        droneNoiseSource = ctx.createBufferSource();
+        droneNoiseSource.buffer = buf;
+        droneNoiseSource.connect(droneNodes.filter);
+        droneNoiseSource.start();
+      }
+
+      let droneExciteId = null;
+
+      function startDrone() {
+        exciteDrone();
+        // Re-excite periodically to keep oscillation alive
+        droneExciteId = setInterval(() => {
+          if (!muteDrone) exciteDrone();
+        }, 2000);
+      }
+
+      function stopDrone() {
+        if (droneExciteId) {
+          clearInterval(droneExciteId);
+          droneExciteId = null;
+        }
+      }
+
+      // ========== SCOPE ==========
+      function syncCanvasSize(canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = Math.round(rect.width * dpr);
+        const h = Math.round(rect.height * dpr);
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+        }
+      }
+
+      function drawScope() {
+        if (!analyser) return;
+        const waveCanvas = document.getElementById("scope-wave");
+        const freqCanvas = document.getElementById("scope-freq");
+        const wc = waveCanvas.getContext("2d");
+        const fc = freqCanvas.getContext("2d");
+        const bufLen = analyser.frequencyBinCount;
+        const timeBuf = new Uint8Array(bufLen);
+        const freqBuf = new Uint8Array(bufLen);
+
+        function render() {
+          requestAnimationFrame(render);
+          syncCanvasSize(waveCanvas);
+          syncCanvasSize(freqCanvas);
+
+          analyser.getByteTimeDomainData(timeBuf);
+          const ww = waveCanvas.width, wh = waveCanvas.height;
+          wc.fillStyle = "#fff";
+          wc.fillRect(0, 0, ww, wh);
+          wc.strokeStyle = "#ddd";
+          wc.lineWidth = 1;
+          wc.beginPath();
+          wc.moveTo(0, wh / 2);
+          wc.lineTo(ww, wh / 2);
+          wc.stroke();
+          wc.lineWidth = 1.5;
+          wc.strokeStyle = "#07a";
+          wc.beginPath();
+          const sliceW = ww / bufLen;
+          for (let i = 0; i < bufLen; i++) {
+            const y = (timeBuf[i] / 255) * wh;
+            if (i === 0) wc.moveTo(0, y);
+            else wc.lineTo(i * sliceW, y);
+          }
+          wc.stroke();
+
+          analyser.getByteFrequencyData(freqBuf);
+          const fw = freqCanvas.width, fh = freqCanvas.height;
+          fc.fillStyle = "#fff";
+          fc.fillRect(0, 0, fw, fh);
+          const barCount = Math.min(bufLen, fw);
+          const barW = fw / barCount;
+          for (let i = 0; i < barCount; i++) {
+            const v = freqBuf[i] / 255;
+            const barH = v * fh;
+            fc.fillStyle = `hsl(${200 - v * 160}, 70%, ${50 - v * 20}%)`;
+            fc.fillRect(i * barW, fh - barH, Math.max(barW - 0.5, 1), barH);
+          }
+        }
+        render();
+      }
+
+      // ========== PLAY / STOP ==========
+      let isPlaying = false;
+
+      document.getElementById("btn-play").addEventListener("click", () => {
+        if (!isReady) return alert("Start Audio first");
+        if (isPlaying) return;
+        isPlaying = true;
+        startGrains();
+        startPlucking();
+        startDrone();
+      });
+
+      document.getElementById("btn-stop").addEventListener("click", () => {
+        if (!isPlaying) return;
+        isPlaying = false;
+        stopGrains();
+        stopPlucking();
+        stopDrone();
+      });
+
+      // ========== PRESETS ==========
+      const PRESETS = {
+        deep: {
+          "in-grain-density": 5, "in-grain-size": 70, "in-grain-pos": 0.20, "in-grain-pitch": 0.50,
+          "in-string-damp": 800, "in-string-octave": 2, "in-string-rate": 4.0, "in-string-vol": 0.40,
+          "in-drone-freq": 80, "in-drone-fb": 0.90, "in-drone-vol": 0.40,
+          "in-rev-mix": 0.75, "in-rev-size": 6.0, "in-master": 0.70
+        },
+        bright: {
+          "in-grain-density": 20, "in-grain-size": 30, "in-grain-pos": 0.60, "in-grain-pitch": 1.50,
+          "in-string-damp": 6000, "in-string-octave": 4, "in-string-rate": 1.2, "in-string-vol": 0.55,
+          "in-drone-freq": 440, "in-drone-fb": 0.80, "in-drone-vol": 0.20,
+          "in-rev-mix": 0.50, "in-rev-size": 3.0, "in-master": 0.65
+        },
+        dark: {
+          "in-grain-density": 3, "in-grain-size": 80, "in-grain-pos": 0.10, "in-grain-pitch": 0.30,
+          "in-string-damp": 500, "in-string-octave": 2, "in-string-rate": 5.0, "in-string-vol": 0.30,
+          "in-drone-freq": 60, "in-drone-fb": 0.95, "in-drone-vol": 0.50,
+          "in-rev-mix": 0.85, "in-rev-size": 7.0, "in-master": 0.60
+        }
+      };
+
+      function applyPreset(preset) {
+        for (const [id, val] of Object.entries(preset)) {
+          setSlider(id, val);
+        }
+        flashPanels();
+      }
+
+      document.getElementById("btn-preset-deep").addEventListener("click", () => applyPreset(PRESETS.deep));
+      document.getElementById("btn-preset-bright").addEventListener("click", () => applyPreset(PRESETS.bright));
+      document.getElementById("btn-preset-dark").addEventListener("click", () => applyPreset(PRESETS.dark));
+
+      // ========== KNOB BINDINGS ==========
+      bind("in-grain-density", "val-grain-density");
+      bind("in-grain-size", "val-grain-size");
+      bind("in-grain-pos", "val-grain-pos");
+      bind("in-grain-pitch", "val-grain-pitch");
+      bind("in-string-damp", "val-string-damp");
+      bind("in-string-octave", "val-string-octave");
+      bind("in-string-rate", "val-string-rate");
+      bind("in-string-vol", "val-string-vol");
+      bind("in-drone-freq", "val-drone-freq", (v) => {
+        if (droneNodes.filter) droneNodes.filter.frequency.value = v;
+      });
+      bind("in-drone-fb", "val-drone-fb", (v) => {
+        if (droneNodes.fb) droneNodes.fb.gain.value = v;
+      });
+      bind("in-drone-vol", "val-drone-vol", (v) => {
+        if (droneNodes.vol) droneNodes.vol.gain.value = v;
+      });
+      bind("in-rev-mix", "val-rev-mix", (v) => {
+        if (dryGainNode) dryGainNode.gain.value = 1 - v;
+        if (wetGainNode) wetGainNode.gain.value = v;
+      });
+      bind("in-rev-size", "val-rev-size", (v) => {
+        if (convolver && ctx) {
+          convolver.buffer = generateReverb(ctx, v, 3.0);
+        }
+      });
+      bind("in-master", "val-master", (v) => {
+        if (masterGain) masterGain.gain.value = v;
+      });
+    </script>
+  </body>
+</html>
