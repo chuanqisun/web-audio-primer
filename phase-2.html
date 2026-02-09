@@ -1,0 +1,699 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Modular Synthesis: Phase 2</title>
+    <link rel="stylesheet" href="shared/elements.css" />
+    <link rel="stylesheet" href="shared/synth-ui.css" />
+    <link rel="stylesheet" href="shared/tutorial.css" />
+  </head>
+  <body>
+    <h1>Web Audio Modular: Phase 2</h1>
+    <p>
+      <button id="init-audio">Start Audio Engine</button>
+      <span id="audio-status" style="margin-left: 10px; color: red">Stopped</span>
+    </p>
+    <hr />
+
+    <!-- MODULE 7: LOGIC & BOOLEAN -->
+    <section>
+      <h2>7. Logic &amp; Boolean Operations</h2>
+      <p><strong>Clock Dividers &amp; Logic Gates.</strong> Two clock signals at different divisions feed a logic gate (AND, OR, XOR). The output triggers a click sound when the gate is high.</p>
+      <button id="btn-logic">Start Clocks</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Gate Type</label>
+        <select id="in-logic-type">
+          <option value="AND">AND</option>
+          <option value="OR">OR</option>
+          <option value="XOR">XOR</option>
+        </select>
+        <div class="desc">Boolean operation applied to the two clocks. AND = both high; OR = either high; XOR = exactly one high.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Clock A Divider: <span id="val-logic-divA">2</span></label>
+        <input type="range" id="in-logic-divA" min="1" max="8" step="1" value="2" />
+        <div class="desc">Divides the master tempo for Clock A. Higher = slower pulses.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Clock B Divider: <span id="val-logic-divB">3</span></label>
+        <input type="range" id="in-logic-divB" min="1" max="8" step="1" value="3" />
+        <div class="desc">Divides the master tempo for Clock B. Creates polyrhythmic patterns against Clock A.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Tempo (BPM): <span id="val-logic-bpm">120</span></label>
+        <input type="range" id="in-logic-bpm" min="60" max="240" step="1" value="120" />
+        <div class="desc">Master clock speed in beats per minute.</div>
+      </div>
+
+      <canvas id="scope-logic"></canvas>
+    </section>
+
+    <!-- MODULE 8: RANDOMNESS & PROBABILITY -->
+    <section>
+      <h2>8. Randomness &amp; Probability</h2>
+      <p><strong>Bernoulli Gate &amp; Turing Machine.</strong> A probability slider determines whether each hi-hat step fires. A shift register loops random patterns that slowly mutate.</p>
+      <button id="btn-rand">Start Hi-Hat Pattern</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Probability: <span id="val-rand-prob">0.50</span></label>
+        <input type="range" id="in-rand-prob" min="0" max="1" step="0.01" value="0.50" />
+        <div class="desc">Chance each step fires. 0 = silent; 1 = every step; 0.5 = coin flip.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Mutation Rate: <span id="val-rand-mut">0.10</span></label>
+        <input type="range" id="in-rand-mut" min="0" max="1" step="0.01" value="0.10" />
+        <div class="desc">Turing Machine: how likely each bit flips on rotation. 0 = locked loop; 1 = pure random.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Tempo (BPM): <span id="val-rand-bpm">140</span></label>
+        <input type="range" id="in-rand-bpm" min="60" max="300" step="1" value="140" />
+        <div class="desc">Speed of the hi-hat sequencer.</div>
+      </div>
+
+      <canvas id="scope-rand"></canvas>
+    </section>
+
+    <!-- MODULE 9: ENVELOPE FOLLOWER & SIDECHAINING -->
+    <section>
+      <h2>9. Envelope Followers &amp; Sidechaining</h2>
+      <p><strong>Sidechain Compression.</strong> A kick drum automatically ducks the volume of a sustained chord, creating the classic "pumping" effect heard in electronic music.</p>
+      <button id="btn-side">Start Sidechain</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Kick Rate (BPM): <span id="val-side-bpm">128</span></label>
+        <input type="range" id="in-side-bpm" min="60" max="200" step="1" value="128" />
+        <div class="desc">How often the kick fires. Each kick ducks the chord volume.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Duck Depth: <span id="val-side-depth">0.95</span></label>
+        <input type="range" id="in-side-depth" min="0" max="1" step="0.01" value="0.95" />
+        <div class="desc">How much the chord volume drops. 1 = full silence on kick; 0 = no ducking.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Release Time: <span id="val-side-rel">0.25</span> s</label>
+        <input type="range" id="in-side-rel" min="0.05" max="1.0" step="0.01" value="0.25" />
+        <div class="desc">How fast the chord recovers after the kick. Longer = deeper pump.</div>
+      </div>
+
+      <canvas id="scope-side"></canvas>
+    </section>
+
+    <!-- MODULE 10: SEQUENCING & QUANTIZATION -->
+    <section>
+      <h2>10. Sequencing &amp; Quantization</h2>
+      <p><strong>Random Voltage → Scale Quantizer.</strong> A random voltage generator creates values that are snapped to a musical scale, driving an oscillator to produce melodic patterns.</p>
+      <button id="btn-seq">Start Sequence</button>
+      <br /><br />
+
+      <div class="control-group">
+        <label>Scale</label>
+        <select id="in-seq-scale">
+          <option value="minPent">C Minor Pentatonic</option>
+          <option value="majPent">C Major Pentatonic</option>
+          <option value="chromatic">Chromatic</option>
+          <option value="major">C Major</option>
+        </select>
+        <div class="desc">The quantizer snaps random voltages to notes in this scale.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Step Rate (BPM): <span id="val-seq-bpm">120</span></label>
+        <input type="range" id="in-seq-bpm" min="40" max="300" step="1" value="120" />
+        <div class="desc">Speed of the step sequencer.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Octave Range: <span id="val-seq-oct">2</span></label>
+        <input type="range" id="in-seq-oct" min="1" max="4" step="1" value="2" />
+        <div class="desc">How many octaves the random voltages can span.</div>
+      </div>
+
+      <div class="control-group">
+        <label>Glide: <span id="val-seq-glide">0.05</span> s</label>
+        <input type="range" id="in-seq-glide" min="0" max="0.5" step="0.01" value="0.05" />
+        <div class="desc">Portamento between notes. 0 = instant jumps; higher = smooth slides.</div>
+      </div>
+
+      <canvas id="scope-seq"></canvas>
+    </section>
+
+    <script>
+      // --- AUDIO ENGINE CONTEXT ---
+      let ctx;
+      let isAudioStarted = false;
+      const statusEl = document.getElementById("audio-status");
+      const initBtn = document.getElementById("init-audio");
+
+      async function initAudio() {
+        if (!ctx) {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+        isAudioStarted = true;
+        statusEl.innerText = "Running";
+        statusEl.style.color = "green";
+        initBtn.disabled = true;
+      }
+      initBtn.addEventListener("click", initAudio);
+
+      // --- SCOPE VISUALIZER HELPER ---
+      function createScope(canvasId, sourceNode) {
+        const canvas = document.getElementById(canvasId);
+        const canvasCtx = canvas.getContext("2d");
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 2048;
+        sourceNode.connect(analyser);
+
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function draw() {
+          if (!document.getElementById(canvasId)) return;
+          requestAnimationFrame(draw);
+          analyser.getByteTimeDomainData(dataArray);
+
+          canvasCtx.fillStyle = "#fff";
+          canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
+          canvasCtx.lineWidth = 2;
+          canvasCtx.strokeStyle = "#000";
+          canvasCtx.beginPath();
+
+          const sliceWidth = (canvas.width * 1.0) / bufferLength;
+          let x = 0;
+
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) canvasCtx.moveTo(x, y);
+            else canvasCtx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          canvasCtx.lineTo(canvas.width, canvas.height / 2);
+          canvasCtx.stroke();
+        }
+        draw();
+        return analyser;
+      }
+
+      // --- MODULE 7: LOGIC & BOOLEAN ---
+      let logicInterval = null;
+      let logicStep = 0;
+      let logicMaster = null;
+      const btnLogic = document.getElementById("btn-logic");
+      const logicHistory = { a: [], b: [], out: [] };
+      const LOGIC_HISTORY_LEN = 32;
+
+      function logicClick(time, freq) {
+        const osc = ctx.createOscillator();
+        const env = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = freq;
+        env.gain.setValueAtTime(0.3, time);
+        env.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+        osc.connect(env);
+        env.connect(logicMaster);
+        osc.start(time);
+        osc.stop(time + 0.04);
+      }
+
+      function drawLogicCanvas() {
+        if (!logicInterval) return;
+        requestAnimationFrame(drawLogicCanvas);
+        const canvas = document.getElementById("scope-logic");
+        const c = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        c.fillStyle = "#fff";
+        c.fillRect(0, 0, w, h);
+
+        const rowH = h / 3;
+        const labels = ["Clk A", "Clk B", "Gate"];
+        const colors = ["#2196F3", "#FF9800", "#4CAF50"];
+        const data = [logicHistory.a, logicHistory.b, logicHistory.out];
+
+        for (let r = 0; r < 3; r++) {
+          const y0 = r * rowH;
+          c.fillStyle = "#eee";
+          c.fillRect(0, y0, w, rowH - 1);
+          c.fillStyle = "#333";
+          c.font = "11px monospace";
+          c.fillText(labels[r], 4, y0 + 13);
+
+          const arr = data[r];
+          const stepW = w / LOGIC_HISTORY_LEN;
+          for (let i = 0; i < arr.length; i++) {
+            if (arr[i]) {
+              c.fillStyle = colors[r];
+              c.fillRect(i * stepW, y0 + 18, stepW - 2, rowH - 22);
+            }
+          }
+        }
+      }
+
+      function logicTick() {
+        const divA = parseInt(document.getElementById("in-logic-divA").value);
+        const divB = parseInt(document.getElementById("in-logic-divB").value);
+        const gateType = document.getElementById("in-logic-type").value;
+
+        const a = logicStep % divA === 0;
+        const b = logicStep % divB === 0;
+        let out = false;
+
+        if (gateType === "AND") out = a && b;
+        else if (gateType === "OR") out = a || b;
+        else if (gateType === "XOR") out = (a && !b) || (!a && b);
+
+        logicHistory.a.push(a);
+        logicHistory.b.push(b);
+        logicHistory.out.push(out);
+        if (logicHistory.a.length > LOGIC_HISTORY_LEN) {
+          logicHistory.a.shift();
+          logicHistory.b.shift();
+          logicHistory.out.shift();
+        }
+
+        const now = ctx.currentTime;
+        if (a) logicClick(now, 1000);
+        if (b) logicClick(now, 600);
+        if (out) logicClick(now, 1800);
+
+        logicStep++;
+      }
+
+      function startLogicInterval() {
+        const bpm = parseInt(document.getElementById("in-logic-bpm").value);
+        logicInterval = setInterval(logicTick, (60 / bpm) * 1000 / 2);
+      }
+
+      btnLogic.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (logicInterval) {
+          clearInterval(logicInterval);
+          logicInterval = null;
+          logicStep = 0;
+          logicHistory.a.length = 0;
+          logicHistory.b.length = 0;
+          logicHistory.out.length = 0;
+          btnLogic.innerText = "Start Clocks";
+          return;
+        }
+
+        if (!logicMaster) {
+          logicMaster = ctx.createGain();
+          logicMaster.gain.value = 0.8;
+          const analyser = createScope("scope-logic", logicMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        logicStep = 0;
+        drawLogicCanvas();
+        startLogicInterval();
+        btnLogic.innerText = "Stop Clocks";
+      });
+
+      document.getElementById("in-logic-divA").addEventListener("input", (e) => {
+        document.getElementById("val-logic-divA").innerText = e.target.value;
+      });
+      document.getElementById("in-logic-divB").addEventListener("input", (e) => {
+        document.getElementById("val-logic-divB").innerText = e.target.value;
+      });
+      document.getElementById("in-logic-bpm").addEventListener("input", (e) => {
+        document.getElementById("val-logic-bpm").innerText = e.target.value;
+        if (logicInterval) {
+          clearInterval(logicInterval);
+          startLogicInterval();
+        }
+      });
+
+      // --- MODULE 8: RANDOMNESS & PROBABILITY ---
+      let randInterval = null;
+      let randStep = 0;
+      let shiftRegister = Array.from({ length: 8 }, () => Math.random() < 0.5 ? 1 : 0);
+      let randMaster = null;
+      const btnRand = document.getElementById("btn-rand");
+      const randHistory = [];
+      const RAND_HISTORY_LEN = 32;
+
+      function playHiHat(time) {
+        const bufferSize = Math.floor(ctx.sampleRate * 0.05);
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 8000;
+        bp.Q.value = 2;
+
+        const env = ctx.createGain();
+        env.gain.setValueAtTime(0.4, time);
+        env.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+
+        noise.connect(bp);
+        bp.connect(env);
+        env.connect(randMaster);
+        noise.start(time);
+        noise.stop(time + 0.07);
+      }
+
+      function drawRandCanvas() {
+        if (!randInterval) return;
+        requestAnimationFrame(drawRandCanvas);
+        const canvas = document.getElementById("scope-rand");
+        const c = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        c.fillStyle = "#fff";
+        c.fillRect(0, 0, w, h);
+
+        const stepW = w / RAND_HISTORY_LEN;
+        const prob = parseFloat(document.getElementById("in-rand-prob").value);
+
+        c.strokeStyle = "#ccc";
+        c.setLineDash([4, 4]);
+        c.beginPath();
+        const threshY = h - prob * (h - 20) - 10;
+        c.moveTo(0, threshY);
+        c.lineTo(w, threshY);
+        c.stroke();
+        c.setLineDash([]);
+
+        c.fillStyle = "#666";
+        c.font = "11px monospace";
+        c.fillText("Prob: " + prob.toFixed(2), 4, 13);
+        c.fillText("Shift Reg: [" + shiftRegister.join("") + "]", 4, 26);
+
+        for (let i = 0; i < randHistory.length; i++) {
+          const hit = randHistory[i];
+          c.fillStyle = hit ? "#E91E63" : "#eee";
+          c.fillRect(i * stepW + 1, 34, stepW - 2, h - 44);
+        }
+      }
+
+      function randTick() {
+        const prob = parseFloat(document.getElementById("in-rand-prob").value);
+        const mut = parseFloat(document.getElementById("in-rand-mut").value);
+
+        const bit = shiftRegister.shift();
+        const newBit = Math.random() < mut ? (1 - bit) : bit;
+        shiftRegister.push(newBit);
+
+        const fires = shiftRegister[0] === 1 && Math.random() < prob;
+
+        randHistory.push(fires);
+        if (randHistory.length > RAND_HISTORY_LEN) randHistory.shift();
+
+        if (fires) playHiHat(ctx.currentTime);
+        randStep++;
+      }
+
+      function startRandInterval() {
+        const bpm = parseInt(document.getElementById("in-rand-bpm").value);
+        randInterval = setInterval(randTick, (60 / bpm) * 1000 / 4);
+      }
+
+      btnRand.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (randInterval) {
+          clearInterval(randInterval);
+          randInterval = null;
+          randStep = 0;
+          randHistory.length = 0;
+          btnRand.innerText = "Start Hi-Hat Pattern";
+          return;
+        }
+
+        if (!randMaster) {
+          randMaster = ctx.createGain();
+          randMaster.gain.value = 1.0;
+          const analyser = createScope("scope-rand", randMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        randStep = 0;
+        drawRandCanvas();
+        startRandInterval();
+        btnRand.innerText = "Stop Hi-Hat Pattern";
+      });
+
+      document.getElementById("in-rand-prob").addEventListener("input", (e) => {
+        document.getElementById("val-rand-prob").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-rand-mut").addEventListener("input", (e) => {
+        document.getElementById("val-rand-mut").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-rand-bpm").addEventListener("input", (e) => {
+        document.getElementById("val-rand-bpm").innerText = e.target.value;
+        if (randInterval) {
+          clearInterval(randInterval);
+          startRandInterval();
+        }
+      });
+
+      // --- MODULE 9: ENVELOPE FOLLOWER & SIDECHAINING ---
+      let sideRunning = false;
+      let sideInterval = null;
+      let sideChordOscs = [];
+      let sideChordGain = null;
+      let sideMaster = null;
+      const btnSide = document.getElementById("btn-side");
+
+      function playKick(time) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(150, time);
+        osc.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+        gain.gain.setValueAtTime(0.7, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3);
+        osc.connect(gain);
+        gain.connect(sideMaster);
+        osc.start(time);
+        osc.stop(time + 0.35);
+      }
+
+      function duckChord(time) {
+        const depth = parseFloat(document.getElementById("in-side-depth").value);
+        const rel = parseFloat(document.getElementById("in-side-rel").value);
+        sideChordGain.gain.cancelScheduledValues(time);
+        sideChordGain.gain.setValueAtTime(1.0 - depth, time);
+        sideChordGain.gain.linearRampToValueAtTime(1.0, time + rel);
+      }
+
+      function startSideInterval() {
+        const bpm = parseInt(document.getElementById("in-side-bpm").value);
+        sideInterval = setInterval(() => {
+          const now = ctx.currentTime;
+          playKick(now);
+          duckChord(now);
+        }, (60 / bpm) * 1000);
+      }
+
+      btnSide.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (sideRunning) {
+          clearInterval(sideInterval);
+          sideChordOscs.forEach((o) => o.stop());
+          sideChordOscs = [];
+          sideRunning = false;
+          btnSide.innerText = "Start Sidechain";
+          return;
+        }
+
+        if (!sideMaster) {
+          sideMaster = ctx.createGain();
+          sideMaster.gain.value = 0.7;
+          const analyser = createScope("scope-side", sideMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        // Sustained chord (Cm7: C3, Eb3, G3, Bb3)
+        sideChordGain = ctx.createGain();
+        sideChordGain.gain.value = 1.0;
+        const chordFreqs = [130.81, 155.56, 196.0, 233.08];
+        chordFreqs.forEach((f) => {
+          const osc = ctx.createOscillator();
+          osc.type = "sawtooth";
+          osc.frequency.value = f;
+          const g = ctx.createGain();
+          g.gain.value = 0.08;
+          osc.connect(g);
+          g.connect(sideChordGain);
+          osc.start();
+          sideChordOscs.push(osc);
+        });
+
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = 800;
+        lp.Q.value = 1;
+        sideChordGain.connect(lp);
+        lp.connect(sideMaster);
+
+        startSideInterval();
+        sideRunning = true;
+        btnSide.innerText = "Stop Sidechain";
+      });
+
+      document.getElementById("in-side-bpm").addEventListener("input", (e) => {
+        document.getElementById("val-side-bpm").innerText = e.target.value;
+        if (sideRunning) {
+          clearInterval(sideInterval);
+          startSideInterval();
+        }
+      });
+      document.getElementById("in-side-depth").addEventListener("input", (e) => {
+        document.getElementById("val-side-depth").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById("in-side-rel").addEventListener("input", (e) => {
+        document.getElementById("val-side-rel").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+
+      // --- MODULE 10: SEQUENCING & QUANTIZATION ---
+      let seqRunning = false;
+      let seqInterval = null;
+      let seqOsc = null;
+      let seqMaster = null;
+      const btnSeq = document.getElementById("btn-seq");
+      const seqHistory = [];
+      const SEQ_HISTORY_LEN = 16;
+
+      const scales = {
+        minPent: [0, 3, 5, 7, 10],
+        majPent: [0, 2, 4, 7, 9],
+        chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        major: [0, 2, 4, 5, 7, 9, 11],
+      };
+
+      function quantize(voltage, scaleName, octaves) {
+        const scale = scales[scaleName];
+        const baseNote = 48; // C3
+        const totalNotes = scale.length * octaves;
+        const idx = Math.min(Math.floor(voltage * totalNotes), totalNotes - 1);
+        const octave = Math.floor(idx / scale.length);
+        const degree = idx % scale.length;
+        const midi = baseNote + octave * 12 + scale[degree];
+        return 440 * Math.pow(2, (midi - 69) / 12);
+      }
+
+      function drawSeqCanvas() {
+        if (!seqRunning) return;
+        requestAnimationFrame(drawSeqCanvas);
+        const canvas = document.getElementById("scope-seq");
+        const c = canvas.getContext("2d");
+        const w = canvas.width;
+        const h = canvas.height;
+        c.fillStyle = "#fff";
+        c.fillRect(0, 0, w, h);
+
+        if (seqHistory.length === 0) return;
+
+        const stepW = w / SEQ_HISTORY_LEN;
+        const minF = 100;
+        const maxF = 1200;
+
+        for (let i = 0; i < seqHistory.length; i++) {
+          const freq = seqHistory[i];
+          const normF = (Math.log2(freq) - Math.log2(minF)) / (Math.log2(maxF) - Math.log2(minF));
+          const barH = Math.max(4, normF * (h - 20));
+          const isLast = i === seqHistory.length - 1;
+          c.fillStyle = isLast ? "#9C27B0" : "#CE93D8";
+          c.fillRect(i * stepW + 1, h - barH - 10, stepW - 2, barH);
+
+          c.fillStyle = "#333";
+          c.font = "9px monospace";
+          c.fillText(Math.round(freq), i * stepW + 2, h - barH - 12);
+        }
+      }
+
+      function seqTick() {
+        const scaleName = document.getElementById("in-seq-scale").value;
+        const octaves = parseInt(document.getElementById("in-seq-oct").value);
+        const glide = parseFloat(document.getElementById("in-seq-glide").value);
+
+        const voltage = Math.random();
+        const freq = quantize(voltage, scaleName, octaves);
+
+        seqHistory.push(freq);
+        if (seqHistory.length > SEQ_HISTORY_LEN) seqHistory.shift();
+
+        const now = ctx.currentTime;
+        seqOsc.frequency.cancelScheduledValues(now);
+        seqOsc.frequency.setValueAtTime(seqOsc.frequency.value, now);
+        seqOsc.frequency.linearRampToValueAtTime(freq, now + glide);
+      }
+
+      function startSeqInterval() {
+        const bpm = parseInt(document.getElementById("in-seq-bpm").value);
+        seqInterval = setInterval(seqTick, (60 / bpm) * 1000);
+      }
+
+      btnSeq.addEventListener("click", () => {
+        if (!isAudioStarted) return alert("Start Audio Engine first");
+
+        if (seqRunning) {
+          clearInterval(seqInterval);
+          if (seqOsc) { seqOsc.stop(); seqOsc = null; }
+          seqRunning = false;
+          seqHistory.length = 0;
+          btnSeq.innerText = "Start Sequence";
+          return;
+        }
+
+        if (!seqMaster) {
+          seqMaster = ctx.createGain();
+          seqMaster.gain.value = 0.3;
+          const analyser = createScope("scope-seq", seqMaster);
+          analyser.connect(ctx.destination);
+        }
+
+        seqOsc = ctx.createOscillator();
+        seqOsc.type = "triangle";
+        seqOsc.frequency.value = 261.63;
+        seqOsc.connect(seqMaster);
+        seqOsc.start();
+
+        seqRunning = true;
+        drawSeqCanvas();
+        seqTick();
+        startSeqInterval();
+        btnSeq.innerText = "Stop Sequence";
+      });
+
+      document.getElementById("in-seq-bpm").addEventListener("input", (e) => {
+        document.getElementById("val-seq-bpm").innerText = e.target.value;
+        if (seqRunning) {
+          clearInterval(seqInterval);
+          startSeqInterval();
+        }
+      });
+      document.getElementById("in-seq-oct").addEventListener("input", (e) => {
+        document.getElementById("val-seq-oct").innerText = e.target.value;
+      });
+      document.getElementById("in-seq-glide").addEventListener("input", (e) => {
+        document.getElementById("val-seq-glide").innerText = parseFloat(e.target.value).toFixed(2);
+      });
+    </script>
+  </body>
+</html>
