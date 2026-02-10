@@ -9,6 +9,8 @@ To provide a comprehensive, hands-on understanding of modular synthesis using th
 
 _Focus: Understanding the core components of a subtractive synthesizer voice._
 
+**Module Page:** [phase-1.html](phase-1.html)
+
 ### Module 1: The Oscillator (VCO)
 
 - **Concept:** The source of sound. Frequency (Pitch) vs. Amplitude (Loudness).
@@ -50,6 +52,8 @@ _Focus: Understanding the core components of a subtractive synthesizer voice._
 
 ### 🎸 Phase 1 Jam: The Monosynth Playground
 
+**Jam Page:** [jam-1.html](jam-1.html)
+
 - **Objective:** Combine VCO, VCF, VCA, LFO, and West Coast elements into a playable instrument.
 - **The Rig:** A single-voice synthesizer.
   - **Oscillator Section:** Mixable Saw/Square/Folded Sine.
@@ -63,6 +67,8 @@ _Focus: Understanding the core components of a subtractive synthesizer voice._
 ## Phase 2: Intermediate Modular (Generative & Rhythmic Systems)
 
 _Focus: Moving from "playing a synth" to "designing a system that plays itself."_
+
+**Module Page:** [phase-2.html](phase-2.html)
 
 ### Module 7: Logic & Boolean Operations
 
@@ -93,6 +99,8 @@ _Focus: Moving from "playing a synth" to "designing a system that plays itself."
 
 ### 🥁 Phase 2 Jam: The Generative Techno System
 
+**Jam Page:** [jam-2.html](jam-2.html)
+
 - **Objective:** Build a self-playing rhythmic machine using Logic, Probability, and Sidechaining.
 - **The Rig:**
   - **Kick Drum:** Driven by a steady clock (4/4).
@@ -106,6 +114,8 @@ _Focus: Moving from "playing a synth" to "designing a system that plays itself."
 ## Phase 3: Advanced Modular (DSP & System Architecture)
 
 _Focus: The math and physics behind the modules._
+
+**Module Page:** [phase-3.html](phase-3.html)
 
 ### Module 11: Physical Modeling (Karplus-Strong)
 
@@ -133,6 +143,8 @@ _Focus: The math and physics behind the modules._
 
 ### 🌌 Phase 3 Jam: The Ambient Soundscape Lab
 
+**Jam Page:** [jam-3.html](jam-3.html)
+
 - **Objective:** Create a texture-heavy, atmospheric composition using advanced DSP.
 - **The Rig:**
   - **Texture Layer:** A Granular Cloud generator manipulating a vocal sample.
@@ -146,6 +158,8 @@ _Focus: The math and physics behind the modules._
 ## Phase 4: The Ecosystem (Polyphony & Architecture)
 
 _Focus: Managing complex systems._
+
+**Module Page:** [phase-4.html](phase-4.html)
 
 ### Module 15: Polyphony & Voice Allocation
 
@@ -161,6 +175,8 @@ _Focus: Managing complex systems._
 - **Interactive Demo:** A Rise/Fall generator visualizer that switches behavior based on user mode selection.
 
 ### 🎹 Phase 4 Jam: The Polyphonic Performance Rack
+
+**Jam Page:** [jam-4.html](jam-4.html)
 
 - **Objective:** A full-featured performance synthesizer combining polyphony with complex modulation.
 - **The Rig:**
